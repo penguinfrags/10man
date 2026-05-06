@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>CS2 Pickup Organizer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -461,12 +462,36 @@ async function loadData() {
     el.style.color = color;
     el.style.opacity = "1";
   };
+
+  const showSpinner = () => {
+    if (document.getElementById("sync-spinner")) return;
+    const el = document.createElement("div");
+    el.id = "sync-spinner";
+    el.style.cssText = "position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:rgba(5,8,15,0.6);z-index:8000;pointer-events:none";
+    el.innerHTML = `
+      <div style="width:44px;height:44px;border:3px solid var(--border2);border-top-color:#e53e3e;border-radius:50%;animation:spin .7s linear infinite"></div>
+      <div style="font-size:13px;font-weight:700;letter-spacing:2px;color:var(--muted)">SYNCING…</div>`;
+    if (!document.getElementById("spin-style")) {
+      const style = document.createElement("style");
+      style.id = "spin-style";
+      style.textContent = "@keyframes spin{to{transform:rotate(360deg)}}";
+      document.head.appendChild(style);
+    }
+    document.body.appendChild(el);
+  };
+
+  const hideSpinner = () => {
+    const el = document.getElementById("sync-spinner");
+    if (el) { el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(()=>el.remove(), 350); }
+  };
+
   const hideSync = () => {
     const el = document.getElementById("sync-badge");
     if (el) { el.style.opacity = "0"; setTimeout(()=>el.remove(), 400); }
   };
 
   showSync("⟳ SYNCING…");
+  showSpinner();
 
   // 3. Fetch from JSONBin in the background
   try {
@@ -488,13 +513,16 @@ async function loadData() {
       render();
     }
     showSync("✓ SYNCED", "#68D391");
+    hideSpinner();
     setTimeout(hideSync, 2000);
   } catch (err) {
     if (err.name === "AbortError") {
+      hideSpinner();
       showSync("⚠ OFFLINE", "#ECC94B");
       setTimeout(hideSync, 3000);
     } else {
       console.error("JSONBin load error:", err);
+      hideSpinner();
       showSync("⚠ CACHED", "#ECC94B");
       setTimeout(hideSync, 3000);
     }
@@ -2168,8 +2196,7 @@ function renderLeaderboard() {
   const rows = eligible.map(({p, s}, i) => {
     const isTop = i === 0;
     const medal = i===0?"🥇":i===1?"🥈":i===2?"🥉":"";
-    const barMax = eligible.length > 0 ? cat.val(eligible[0].s) : 1;
-    const barPct = barMax > 0 ? Math.min(100, (cat.val(s)/barMax)*100) : 0;
+    const barPct = ((p.rating - 1) / 17 * 100).toFixed(1);
     const rc = rankColor(p.rating);
     const eloNet = s.elo - 1000;
     const eloColor = eloNet>=0?"#68D391":"#fc8181";
