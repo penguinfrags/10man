@@ -1849,12 +1849,19 @@ function renderHistory() {
         const lrRaw = hist?.leetifyRating != null ? hist.leetifyRating * 100 : null;
         const lr = lrRaw != null ? `${lrRaw >= 0 ? "+" : ""}${lrRaw.toFixed(2)}` : null;
         const lrColor = lrRaw != null ? (lrRaw > 1 ? "#68D391" : lrRaw < -5 ? "#fc8181" : "var(--muted)") : "var(--muted)";
+        const hltv = hist?.hltvRating != null ? hist.hltvRating.toFixed(2) : null;
+        const hltvColor = hltv != null ? (hist.hltvRating >= 1.1 ? "#68D391" : hist.hltvRating < 0.9 ? "#fc8181" : "var(--muted)") : "var(--muted)";
+        const matchRec = state.matches.find(x=>x.id===m.matchId);
+        const rounds = matchRec?.roundScore ? (matchRec.roundScore.ct + matchRec.roundScore.t) : 0;
+        const adr = (rounds > 0 && hist?.damage != null) ? (hist.damage / rounds).toFixed(1) : null;
         return `
-        <div class="hist-player-row">
+        <div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:16px">
           <span style="color:var(--text);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;"
                 data-player-profile="${esc(p.id)}">${esc(p.name)}</span>
           <span style="color:var(--muted);font-family:var(--mono)">${esc(kd)}</span>
-          ${lr != null ? `<span style="color:${lrColor};font-family:var(--mono);font-size:11px" title="Leetify Rating">LR ${lr}</span>` : '<span></span>'}
+          ${adr != null ? `<span style="color:var(--muted);font-family:var(--mono);font-size:14px">ADR ${adr}</span>` : '<span></span>'}
+          ${hltv != null ? `<span style="color:${hltvColor};font-family:var(--mono);font-size:14px">HLTV ${hltv}</span>` : '<span></span>'}
+          ${lr != null ? `<span style="color:${lrColor};font-family:var(--mono);font-size:14px">LR ${lr}</span>` : '<span></span>'}
           <span style="color:${dColor};font-weight:600;font-family:var(--mono)">${deltaLabel}</span>
         </div>`;
       }).join('');
