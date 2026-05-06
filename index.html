@@ -1853,7 +1853,10 @@ function renderHistory() {
         const hltvColor = hltv != null ? (hist.hltvRating >= 1.1 ? "#68D391" : hist.hltvRating < 0.9 ? "#fc8181" : "var(--muted)") : "var(--muted)";
         const matchRec = state.matches.find(x=>x.id===m.matchId);
         const rounds = matchRec?.roundScore ? (matchRec.roundScore.ct + matchRec.roundScore.t) : 0;
-        const adr = (rounds > 0 && hist?.damage != null) ? (hist.damage / rounds).toFixed(1) : null;
+        const side = matchRec?.teams?.ct?.includes(p.id) ? "ct" : "t";
+        const scoreEntry = matchRec?.scores?.[side]?.[p.id];
+        const dmg = hist?.damage ?? scoreEntry?.damage ?? null;
+        const adr = (rounds > 0 && dmg != null) ? (dmg / rounds).toFixed(1) : null;
         return `
         <div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:16px">
           <span style="color:var(--text);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;"
