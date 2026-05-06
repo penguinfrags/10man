@@ -1,0 +1,2069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CS2 Pickup Organizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg0: #05080f;
+    --bg1: #090e18;
+    --bg2: #0e1623;
+    --bg3: #141e2e;
+    --bg4: #1a2640;
+    --border: #1e2d42;
+    --border2: #243450;
+    --text: #dde6f0;
+    --muted: #5a7080;
+    --muted2: #3a5060;
+    --red: #e53e3e;
+    --red-dim: #7a1f1f;
+    --blue: #4299e1;
+    --blue-dim: #1a3060;
+    --green: #48bb78;
+    --amber: #ecc94b;
+    --purple: #b794f4;
+    --font: 'Rajdhani', sans-serif;
+    --mono: 'Share Tech Mono', monospace;
+  }
+
+  html, body { height: 100%; background: var(--bg0); color: var(--text); font-family: var(--font); overflow: hidden; }
+
+  /* ── Layout ── */
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* ── Header ── */
+  #header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 28px; height: 56px;
+    background: var(--bg1);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .logo { font-size: 22px; font-weight: 800; color: var(--red); letter-spacing: 4px; }
+  .logo-sep { color: var(--border2); font-size: 18px; }
+  .logo-title { font-size: 17px; font-weight: 600; letter-spacing: 2px; color: var(--text); }
+  #header-stats { margin-left: auto; color: var(--muted); font-size: 13px; font-family: var(--mono); }
+
+  /* ── Nav ── */
+  #nav {
+    display: flex; background: var(--bg1);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px; flex-shrink: 0;
+  }
+  .nav-btn {
+    padding: 13px 20px; background: none; border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted); cursor: pointer;
+    font-family: var(--font); font-weight: 700; font-size: 13px; letter-spacing: 2px;
+    transition: color .15s, border-color .15s;
+  }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { color: var(--text); border-bottom-color: var(--red); }
+
+  /* ── Main content ── */
+  #content { flex: 1; overflow-y: auto; padding: 28px; }
+
+  /* ── Scrollbar ── */
+  #content::-webkit-scrollbar { width: 6px; }
+  #content::-webkit-scrollbar-track { background: var(--bg1); }
+  #content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Flash ── */
+  #flash {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-8px);
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 10px 22px;
+    color: var(--text); font-size: 14px; font-weight: 600; letter-spacing: .5px;
+    z-index: 9999; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none;
+  }
+  #flash.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Modal overlay ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.8);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9000;
+  }
+  .modal-box {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 16px; padding: 28px;
+    width: min(480px, 95vw); max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .modal-title h3 { color: var(--text); font-size: 16px; }
+  .modal-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px 26px;
+    transition: border-color .15s;
+  }
+  .card.clickable:hover { border-color: var(--border2); cursor: pointer; }
+  .card.in-lobby { background: #0f1e10; border-color: #1e4020; }
+  .card.in-lobby:hover { border-color: #2a5a2a; }
+
+  /* ── Player card ── */
+  .player-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .player-name { font-size: 24px; font-weight: 700; color: var(--text); }
+  .player-role { font-size: 16px; color: var(--muted); margin-top: 2px; }
+  .player-rank-label { font-size: 17px; font-weight: 700; }
+  .player-rank-val { font-size: 14px; color: var(--muted); font-family: var(--mono); }
+  .rating-bar-track { height: 3px; background: var(--bg4); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+  .rating-bar-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+  .player-stats { display: flex; gap: 16px; font-size: 16px; color: var(--muted); flex-wrap: wrap; }
+  .player-stats b { color: var(--text); }
+  .lobby-indicator { margin-top: 8px; font-size: 12px; font-weight: 700; }
+
+  /* ── Grid ── */
+  .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+
+  /* ── Inputs / buttons ── */
+  input, select, textarea {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 9px 12px;
+    color: var(--text); font-family: var(--font); font-size: 14px;
+    outline: none; transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: var(--blue); }
+  input[type=range] {
+    background: none; border: none; padding: 4px 0;
+    accent-color: var(--red); cursor: pointer;
+  }
+  input[type=number]::-webkit-inner-spin-button { opacity: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 9px 18px; border-radius: 10px;
+    font-family: var(--font); font-weight: 700; font-size: 13px; letter-spacing: 1px;
+    cursor: pointer; transition: opacity .15s, transform .1s; border: none;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--red); color: #fff; }
+  .btn-primary:hover { opacity: .9; }
+  .btn-primary:disabled { background: var(--bg4); color: var(--muted); cursor: not-allowed; transform: none; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border2); color: var(--muted); }
+  .btn-ghost:hover { border-color: var(--blue); color: var(--text); }
+  .btn-icon { padding: 6px 9px; background: var(--bg3); border: 1px solid var(--border); color: var(--muted); font-size: 14px; border-radius: 7px; }
+  .btn-icon:hover { color: var(--text); border-color: var(--border2); }
+  .btn-icon.danger:hover { color: #fc8181; border-color: #7a1f1f; }
+
+  /* ── Section labels ── */
+  .sec-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--muted); margin-bottom: 12px; font-family: var(--mono); }
+
+  /* ── Team columns ── */
+  .teams-row { display: flex; gap: 14px; }
+  .team-col { flex: 1; min-width: 0; border-radius: 14px; padding: 18px; border: 1px solid; }
+  .team-col.ct { background: var(--bg2); border-color: rgba(66,153,225,.25); }
+  .team-col.t  { background: var(--bg2); border-color: rgba(229,62,62,.25); }
+  .team-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .team-label { font-size: 18px; font-weight: 800; letter-spacing: 3px; }
+  .team-avg { font-size: 12px; color: var(--muted); }
+  .team-player-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 12px; background: var(--bg3); border-radius: 8px; margin-bottom: 7px;
+  }
+  .tpr-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .tpr-role { font-size: 11px; color: var(--muted); }
+  .tpr-rank { font-size: 12px; font-weight: 600; }
+
+  /* ── Map buttons ── */
+  .map-btn {
+    padding: 10px 18px; background: var(--bg3);
+    border: 1px solid var(--border2); border-radius: 10px;
+    color: var(--text); font-family: var(--font); font-weight: 700;
+    font-size: 13px; letter-spacing: 2px; cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .map-btn:hover { background: var(--bg4); border-color: var(--blue); color: var(--blue); }
+
+  /* ── Win buttons ── */
+  .win-btn {
+    flex: 1; padding: 18px; border-radius: 12px;
+    font-family: var(--font); font-weight: 800; font-size: 20px; letter-spacing: 3px;
+    cursor: pointer; transition: opacity .15s, transform .1s;
+  }
+  .win-btn:active { transform: scale(.97); }
+  .win-btn.ct { background: var(--blue-dim); border: 2px solid var(--blue); color: var(--blue); }
+  .win-btn.t  { background: var(--red-dim); border: 2px solid var(--red); color: var(--red); }
+  .win-btn:hover { opacity: .85; }
+
+  /* ── Lobby tag ── */
+  .lobby-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #0f1e10; border: 1px solid #2a5a2a;
+    border-radius: 20px; padding: 5px 12px;
+    font-size: 13px; font-weight: 600; color: var(--text);
+  }
+  .lobby-tag-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .lobby-tag-x {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 16px; line-height: 1; padding: 0 0 0 4px;
+  }
+  .lobby-tag-x:hover { color: #fc8181; }
+
+  /* ── History card ── */
+  .hist-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+  .hist-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .hist-badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .hist-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .hist-player-row { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+
+  /* ── Stat modal player ── */
+  .stat-player { margin-bottom: 14px; padding: 12px 14px; background: var(--bg3); border-radius: 10px; border: 1px solid var(--border2); }
+  .stat-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .stat-fields label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 3px; text-transform: capitalize; }
+  .stat-fields input { width: 100%; padding: 6px 8px; font-size: 13px; }
+
+  /* ── Add form ── */
+  #add-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #add-form input[type=text] { flex: 2; min-width: 140px; }
+  #add-form select { flex: 1; min-width: 130px; }
+  .add-rating-wrap { flex: 2; min-width: 180px; }
+  .add-rating-wrap span { font-size: 11px; color: var(--muted); display: block; margin-bottom: 3px; }
+  #add-form input[type=range] { width: 100%; }
+
+  /* ── Search ── */
+  #search-row { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; }
+  #search-row input { flex: 1; }
+  #search-count { color: var(--muted); font-size: 13px; white-space: nowrap; font-family: var(--mono); }
+
+  /* ── Drag handle ── */
+  .drag-handle { cursor: grab; color: var(--muted2); font-size: 16px; padding: 0 4px; }
+
+  /* ── Empty state ── */
+  .empty-state { text-align: center; color: var(--muted); padding-top: 60px; }
+  .empty-state .empty-icon { font-size: 48px; display: block; margin-bottom: 16px; opacity: .5; }
+  .empty-state p { font-size: 15px; margin-bottom: 6px; }
+  .empty-state small { font-size: 13px; }
+
+  /* ── Corner decoration ── */
+  .corner-tl, .corner-br {
+    position: absolute; width: 12px; height: 12px;
+    pointer-events: none;
+  }
+  .corner-tl { top: 8px; left: 8px; border-top: 2px solid var(--border2); border-left: 2px solid var(--border2); }
+  .corner-br { bottom: 8px; right: 8px; border-bottom: 2px solid var(--border2); border-right: 2px solid var(--border2); }
+
+  @media (max-width: 640px) {
+    .teams-row { flex-direction: column; }
+    #add-form { gap: 8px; }
+    .hist-teams { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="header">
+    <div class="logo">CS2</div>
+    <div class="logo-sep">|</div>
+    <div class="logo-title">PICKUP ORGANIZER</div>
+    <div id="header-stats">0 players · 0 matches</div>
+  </div>
+
+  <div id="nav">
+    <button class="nav-btn active" data-view="roster">ROSTER</button>
+    <button class="nav-btn" data-view="lobby">LOBBY <span id="nav-lobby-count">(0/10)</span></button>
+    <button class="nav-btn" data-view="match">MATCH</button>
+    <button class="nav-btn" data-view="history">HISTORY</button>
+    <button class="nav-btn" data-view="leaderboard">LEADERBOARD</button>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<div id="flash"></div>
+
+<script>
+// ─── Data & state ──────────────────────────────────────────────────────────
+const MAPS = ["Dust2","Mirage","Inferno","Nuke","Overpass","Ancient","Anubis","Vertigo","Cache"];
+const ROLES = ["Entry Fragger","AWPer","Support","IGL","Lurker","Flex"];
+const RANK_LABELS = {
+  1:"Silver 1",2:"Silver 2",3:"Silver 3",4:"Silver 4",5:"Silver Elite",6:"Silver Elite Master",
+  7:"Gold Nova 1",8:"Gold Nova 2",9:"Gold Nova 3",10:"Gold Nova Master",
+  11:"Master Guardian 1",12:"Master Guardian 2",13:"Master Guardian Elite",14:"Distinguished Master Guardian",
+  15:"Legendary Eagle",16:"Legendary Eagle Master",17:"Supreme Master First Class",18:"Global Elite"
+};
+// Rank color gradient: grey -> light blue -> blue -> light purple -> purple -> pink -> red -> gold
+const RANK_COLOR_STOPS = [
+  [1,  "#C0C8D0"], // grey-white
+  [3,  "#A8B8C8"], // light grey
+  [5,  "#8AAEC8"], // grey-blue
+  [7,  "#6EB4E8"], // light blue
+  [9,  "#4299E1"], // blue
+  [11, "#818CF8"], // light purple
+  [13, "#A855F7"], // purple
+  [15, "#D946A8"], // purple-pink
+  [16, "#F43F5E"], // pink-red
+  [17, "#E53E3E"], // red
+  [18, "#F6C343"], // gold
+];
+function rankColor(r) {
+  const v = Math.max(1, Math.min(18, r));
+  for (let i = 0; i < RANK_COLOR_STOPS.length - 1; i++) {
+    const [r0, c0] = RANK_COLOR_STOPS[i];
+    const [r1, c1] = RANK_COLOR_STOPS[i + 1];
+    if (v >= r0 && v <= r1) {
+      const t = (v - r0) / (r1 - r0);
+      const hex = h => parseInt(h, 16);
+      const lerp = (a, b) => Math.round(a + (b - a) * t).toString(16).padStart(2, "0");
+      const h0 = [c0.slice(1,3), c0.slice(3,5), c0.slice(5,7)];
+      const h1 = [c1.slice(1,3), c1.slice(3,5), c1.slice(5,7)];
+      return "#" + lerp(hex(h0[0]), hex(h1[0])) + lerp(hex(h0[1]), hex(h1[1])) + lerp(hex(h0[2]), hex(h1[2]));
+    }
+  }
+  return RANK_COLOR_STOPS[RANK_COLOR_STOPS.length - 1][1];
+}
+const rankLabel = r => RANK_LABELS[Math.round(r)] || "Unranked";
+const genId = () => Math.random().toString(36).slice(2,9);
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+function calcElo(playerRating, oppAvg, won, kd) {
+  const K = 32;
+  const exp = 1 / (1 + Math.pow(10, (oppAvg - playerRating) / 400 * 18));
+  const outcome = won ? 1 : 0;
+  const perfBonus = (kd - 1) * 0.2;
+  return K * (outcome - exp) + perfBonus * K * 0.3;
+}
+
+// Separate ELO calculation on a 1000-baseline scale
+function calcEloPoints(playerElo, oppAvgElo, won, kd) {
+  const K = 25;
+  const exp = 1 / (1 + Math.pow(10, (oppAvgElo - playerElo) / 400));
+  const outcome = won ? 1 : 0;
+  const perfBonus = (kd - 1) * 0.15;
+  return Math.round(K * (outcome - exp) + perfBonus * K * 0.4);
+}
+
+let state = {
+  view: "roster",
+  players: [],
+  matches: [],
+  lobby: [],         // array of player ids
+  teams: null,       // { ct:[], t:[] }
+  currentMatch: null,
+  pendingStats: {},  // { ct: {id: {k,d,a}}, t: {...} }
+  addForm: { name:"", rating:10, role:"Flex" },
+  searchQ: "",
+  editId: null,
+  // captain draft
+  draft: null,       // { captains:[ctId,tId], pool:[ids], picks:{ct:[],t:[]}, turn:"ct" }
+};
+
+const DEFAULT_PLAYERS = [
+  {id:genId(),name:"ambient",rating:10,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"apt",rating:6,role:"Flex",matchHistory:[],aliases:["john gilkison","johng","johngilkison","karl dandleton","karldandleton","gunkleman"]},
+  {id:genId(),name:"attkr",rating:13,role:"Flex",matchHistory:[],aliases:[]},
+  {id:genId(),name:"Benton",rating:9,role:"Flex",matchHistory:[],aliases:["james_plays_games","jamesplaysgames","james plays games"]},
+  {id:genId(),name:"Chris",rating:9,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"cows",rating:8,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"glyde",rating:16,role:"Flex",matchHistory:[],aliases:["kaylanelson","kayla nelson","76561199074380290"]},
+  {id:genId(),name:"Glynth",rating:8,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"gwhatkey",rating:14,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"krypa",rating:9,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"liftie",rating:11,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"lnr",rating:8,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"mb",rating:12,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"gnarly",rating:7,role:"Flex",matchHistory:[],aliases:["freak!/oddity","freakodity","freak!","oddity","freakslashOddity"]},
+  {id:genId(),name:"penguin",rating:14,role:"Flex",matchHistory:[],aliases:["tae bo blackbelt","taeboblackbelt","tae bo"]},
+  {id:genId(),name:"stu",rating:9,role:"Flex",matchHistory:[],aliases:["bigxturdstealer","BIGxTURDSTEALER","big x turd stealer"]},
+  {id:genId(),name:"tiny",rating:8,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"twigs",rating:9,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"yrb",rating:13,role:"Flex",matchHistory:[],aliases:["bbbbb","loom_weaver","loomweaver"]},
+  {id:genId(),name:"ziGGeh 💩",rating:15,role:"Flex",matchHistory:[],aliases:["mofries"]},
+  {id:genId(),name:"adhd",rating:9,role:"Flex",matchHistory:[],aliases:["paul enhance","paulenhance"]},
+  {id:genId(),name:"Bill Nogel",rating:9,role:"Flex",matchHistory:[],aliases:["bill nogel","billnogel","ophianoi"]},
+];
+
+// ─── Persistence ───────────────────────────────────────────────────────────
+function loadData() {
+  try {
+    const p = localStorage.getItem("cs2_players");
+    const m = localStorage.getItem("cs2_matches");
+    state.players = p ? JSON.parse(p) : JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
+    state.matches  = m ? JSON.parse(m) : [];
+  } catch { state.players = JSON.parse(JSON.stringify(DEFAULT_PLAYERS)); state.matches = []; }
+}
+function saveData() {
+  localStorage.setItem("cs2_players", JSON.stringify(state.players));
+  localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
+}
+
+// ─── Flash ─────────────────────────────────────────────────────────────────
+let flashTimer;
+function flash(msg) {
+  const el = document.getElementById("flash");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+// ─── Routing / render ──────────────────────────────────────────────────────
+function setView(v) {
+  state.view = v;
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === v));
+  render();
+}
+
+function render() {
+  updateHeaderStats();
+  updateLobbyCount();
+  const content = document.getElementById("content");
+  if (state.view === "roster")  { content.innerHTML = renderRoster(); bindRoster(); }
+  if (state.view === "lobby")   { content.innerHTML = renderLobby();  bindLobby(); }
+  if (state.view === "match")   { content.innerHTML = renderMatch();  bindMatch(); }
+  if (state.view === "history") { content.innerHTML = renderHistory(); bindHistory(); }
+  if (state.view === "leaderboard") { content.innerHTML = renderLeaderboard(); bindLeaderboard(); }
+}
+
+function updateHeaderStats() {
+  document.getElementById("header-stats").textContent =
+    `${state.players.length} players · ${state.matches.length} matches`;
+}
+function updateLobbyCount() {
+  document.getElementById("nav-lobby-count").textContent = `(${state.lobby.length}/10)`;
+}
+
+// ─── Rank badge SVG ────────────────────────────────────────────────────────
+function rankBadgeSVG(rating, color) {
+  const display = (Math.round(rating * 2) / 2).toFixed(1);
+  const fontSize = display.length >= 4 ? "9" : "11";
+  return `<svg width="36" height="40" viewBox="0 0 32 36" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 2 L30 8 L30 20 C30 27 16 34 16 34 C16 34 2 27 2 20 L2 8 Z" fill="${color}22" stroke="${color}" stroke-width="1.5"/>
+    <text x="16" y="21" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="${fontSize}" font-weight="700" fill="${color}">${display}</text>
+  </svg>`;
+}
+
+// ─── Shared HTML helpers ───────────────────────────────────────────────────
+function getLRMedals() {
+  const ranked = state.players
+    .map(p => {
+      const h = p.matchHistory || [];
+      const vals = h.map(m=>m.leetifyRating).filter(v=>v!=null);
+      const avg = vals.length > 0 ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+      return { id: p.id, avg };
+    })
+    .filter(x => x.avg !== null)
+    .sort((a,b) => b.avg - a.avg);
+  const m = {};
+  if (ranked[0]) m[ranked[0].id] = "🥇";
+  if (ranked[1]) m[ranked[1].id] = "🥈";
+  if (ranked[2]) m[ranked[2].id] = "🥉";
+  return m;
+}
+
+function playerCardHTML(p, selectable) {
+  const inLobby = state.lobby.includes(p.id);
+  const hist  = p.matchHistory || [];
+  const wins  = hist.filter(m=>m.won).length;
+  const total = hist.length;
+  const kdArr = hist.map(m=>m.deaths>0?m.kills/m.deaths:m.kills);
+  const avgKD = total > 0 ? (kdArr.reduce((a,b)=>a+b,0)/total).toFixed(2) : "—";
+  const pct   = ((p.rating-1)/17*100).toFixed(1);
+  const color = rankColor(p.rating);
+  const label = rankLabel(p.rating);
+  const badge = rankBadgeSVG(p.rating, color);
+
+  // ELO (separate from manual skill rating)
+  const elo        = p.elo ?? (total > 0 ? 1000 : null);
+  const lastDelta  = total > 0 ? (hist[hist.length-1].eloDelta ?? null) : null;
+  const deltaColor = lastDelta > 0 ? "#68D391" : lastDelta < 0 ? "#fc8181" : "#5a7080";
+  const deltaStr   = lastDelta !== null ? `${lastDelta > 0 ? "+" : ""}${lastDelta}` : "";
+  const netElo     = elo !== null ? elo - 1000 : 0;
+  const netColor   = netElo > 0 ? "#68D391" : netElo < 0 ? "#fc8181" : "#5a7080";
+
+  // Last 5 results
+  const last5 = hist.slice(-5).map(m =>
+    m.won
+      ? `<span style="font-size:18px;font-weight:800;color:#68D391">W</span>`
+      : `<span style="font-size:18px;font-weight:800;color:#fc8181">L</span>`
+  ).join('<span style="color:var(--muted2);font-size:9px">·</span>');
+  const lrValues  = hist.map(m=>m.leetifyRating).filter(v=>v!=null);
+  const avgLRRaw  = lrValues.length > 0 ? lrValues.reduce((a,b)=>a+b,0)/lrValues.length : null;
+  const avgLR     = avgLRRaw !== null ? avgLRRaw * 100 : null;
+  const lrColor   = avgLR !== null ? (avgLR > 1 ? "#68D391" : avgLR < -5 ? "#fc8181" : "var(--muted)") : "var(--muted)";
+
+  // ADR (avg damage per round from all matches with round data)
+  const totalDamage = hist.reduce((s,m)=>s+(m.damage||0),0);
+  const totalRounds = hist.reduce((s,m)=>{
+    const mr = state.matches.find(x=>x.id===m.matchId);
+    return s + (mr?.roundScore ? (mr.roundScore.ct + mr.roundScore.t) : 0);
+  }, 0);
+  const adr = totalRounds > 0 ? totalDamage / totalRounds : null;
+
+  return `
+  <div class="card${selectable?' clickable':''}${inLobby?' in-lobby':''}"
+       ${selectable?`data-toggle-lobby="${esc(p.id)}"`:''}>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="flex-shrink:0;opacity:0.92">${badge}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:baseline;gap:7px">
+          <div class="player-name">${esc(p.name)}</div>
+          ${getLRMedals()[p.id] ? `<span style="font-size:18px;line-height:1">${getLRMedals()[p.id]}</span>` : ''}
+          ${lastDelta !== null ? `<span style="font-size:15px;font-weight:700;color:${deltaColor};font-family:var(--mono)">${deltaStr}</span>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:1px">
+          <div style="font-size:16px;color:${color};font-weight:700;letter-spacing:.5px">${esc(label)}</div>
+          ${elo !== null ? `<div style="font-size:15px;font-weight:700;color:var(--muted);font-family:var(--mono)">ELO <span style="color:${netColor}">${elo}</span></div>` : ''}
+        </div>
+        <div class="player-role" style="margin-top:4px">${esc(p.role)}</div>
+      </div>
+      ${selectable ? `<div style="font-size:15px;font-weight:700;letter-spacing:1px;color:${inLobby?'#68D391':'#4299E1'};text-align:right;flex-shrink:0">${inLobby?'✓ IN<br>LOBBY':'+ ADD<br>LOBBY'}</div>` : ''}
+    </div>
+    <div class="rating-bar-track" style="margin-bottom:10px">
+      <div class="rating-bar-fill" style="width:${pct}%;background:${color}"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="player-stats" style="font-size:17px">
+        <span>W/L: <b>${wins}/${total-wins}</b></span>
+        <span>K/D: <b>${avgKD}</b></span>
+        ${avgLR !== null ? `<span>LR: <b style="color:${lrColor}">${avgLR>=0?"+":""}${avgLR.toFixed(2)}</b></span>` : ''}
+        ${adr !== null ? `<span>ADR: <b>${adr.toFixed(1)}</b></span>` : ''}
+        ${avgLR === null && adr === null ? `<span>Matches: <b>${total}</b></span>` : ''}
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <button class="btn-icon" data-edit="${esc(p.id)}" title="Edit">✎</button>
+        <button class="btn-icon danger" data-remove="${esc(p.id)}" title="Remove">✕</button>
+      </div>
+    </div>
+    ${total > 0 ? `<div style="display:flex;align-items:center;gap:6px;margin-top:12px">${last5.replace(/font-size:18px/g,'font-size:22px')}</div>` : ''}
+  </div>`;
+}
+
+// ─── ROSTER ───────────────────────────────────────────────────────────────
+function renderRoster() {
+  const q = state.searchQ.toLowerCase();
+  const filtered = state.players.filter(p => p.name.toLowerCase().includes(q)).sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  const rankLbl = rankLabel(state.addForm.rating);
+
+  return `
+  <div id="search-row">
+    <input type="text" id="search-input" placeholder="Search players…" value="${esc(state.searchQ)}" />
+    <span id="search-count">${filtered.length} / ${state.players.length}</span>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="sec-label">ADD PLAYER</div>
+    <div id="add-form">
+      <input type="text" id="new-name" placeholder="Player name" value="${esc(state.addForm.name)}" />
+      <select id="new-role">
+        ${ROLES.map(r=>`<option${r===state.addForm.role?' selected':''}>${esc(r)}</option>`).join('')}
+      </select>
+      <div class="add-rating-wrap">
+        <span id="rating-lbl">Skill: ${esc(rankLbl)} (${state.addForm.rating})</span>
+        <input type="range" id="new-rating" min="1" max="18" step="1" value="${state.addForm.rating}" />
+      </div>
+      <button class="btn btn-primary" id="add-btn">+ ADD</button>
+    </div>
+  </div>
+
+  <div class="players-grid" id="players-grid">
+    ${filtered.map(p=>playerCardHTML(p, true)).join('')}
+    ${filtered.length===0?'<p style="color:var(--muted);grid-column:1/-1">No players found.</p>':''}
+  </div>`;
+}
+
+function bindRoster() {
+  document.getElementById("search-input").addEventListener("input", e => {
+    state.searchQ = e.target.value; render();
+  });
+  document.getElementById("new-name").addEventListener("input", e => { state.addForm.name = e.target.value; });
+  document.getElementById("new-role").addEventListener("change", e => { state.addForm.role = e.target.value; });
+  document.getElementById("new-rating").addEventListener("input", e => {
+    state.addForm.rating = +e.target.value;
+    document.getElementById("rating-lbl").textContent = `Skill: ${rankLabel(state.addForm.rating)} (${state.addForm.rating})`;
+  });
+  document.getElementById("add-btn").addEventListener("click", addPlayer);
+  document.getElementById("new-name").addEventListener("keydown", e => { if(e.key==="Enter") addPlayer(); });
+
+  document.getElementById("players-grid").addEventListener("click", e => {
+    const editId   = e.target.closest("[data-edit]")?.dataset.edit;
+    const removeId = e.target.closest("[data-remove]")?.dataset.remove;
+    if (editId)   { openEdit(editId); return; }
+    if (removeId) { removePlayer(removeId); return; }
+    const toggleId = e.target.closest("[data-toggle-lobby]")?.dataset.toggleLobby;
+    if (toggleId) toggleLobby(toggleId);
+  });
+}
+
+function addPlayer() {
+  const name = document.getElementById("new-name").value.trim();
+  if (!name) { flash("Enter a player name"); return; }
+  const p = { id:genId(), name, rating:state.addForm.rating, role:state.addForm.role, matchHistory:[] };
+  state.players.push(p);
+  state.addForm.name = "";
+  saveData(); render();
+  flash(`${p.name} added to roster`);
+}
+
+function removePlayer(id) {
+  const p = state.players.find(x=>x.id===id);
+  state.players = state.players.filter(x=>x.id!==id);
+  state.lobby = state.lobby.filter(i=>i!==id);
+  saveData(); render();
+  if(p) flash(`${p.name} removed`);
+}
+
+// ─── Edit modal ────────────────────────────────────────────────────────────
+function openEdit(id) {
+  const p = state.players.find(x=>x.id===id);
+  if(!p) return;
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.id = "edit-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <h3 style="color:var(--text);margin-bottom:20px;font-size:16px;">EDIT PLAYER</h3>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Name</label>
+      <input id="edit-name" type="text" value="${esc(p.name)}" style="width:100%;margin-bottom:14px" />
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Role</label>
+      <select id="edit-role" style="width:100%;margin-bottom:14px">
+        ${ROLES.map(r=>`<option${r===p.role?' selected':''}>${esc(r)}</option>`).join('')}
+      </select>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Aliases (Steam names, comma-separated)</label>
+      <input id="edit-aliases" type="text" value="${esc((p.aliases||[]).join(", "))}" placeholder="e.g. john gilkison, johng" style="width:100%;margin-bottom:14px" />
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px" id="edit-rating-lbl">Rating: ${rankLabel(Math.round(p.rating))} (${p.rating.toFixed(1)})</label>
+      <input id="edit-rating" type="range" min="1" max="18" step="0.5" value="${p.rating}" style="width:100%;margin-bottom:20px" />
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" id="edit-cancel">Cancel</button>
+        <button class="btn btn-primary" style="flex:2" id="edit-save">Save Changes</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById("edit-rating").addEventListener("input", e => {
+    document.getElementById("edit-rating-lbl").textContent = `Rating: ${rankLabel(Math.round(+e.target.value))} (${(+e.target.value).toFixed(1)})`;
+  });
+  document.getElementById("edit-cancel").addEventListener("click", () => overlay.remove());
+  document.getElementById("edit-save").addEventListener("click", () => {
+    const newName    = document.getElementById("edit-name").value.trim();
+    const newRole    = document.getElementById("edit-role").value;
+    const newRating  = +document.getElementById("edit-rating").value;
+    const aliasRaw   = document.getElementById("edit-aliases").value;
+    const newAliases = aliasRaw.split(",").map(a=>a.trim()).filter(Boolean);
+    if(!newName) { flash("Name can't be empty"); return; }
+    const idx = state.players.findIndex(x=>x.id===id);
+    if(idx>-1) { state.players[idx] = {...state.players[idx], name:newName, role:newRole, rating:newRating, aliases:newAliases}; }
+    saveData(); overlay.remove(); render();
+    flash(`${newName} updated`);
+  });
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+}
+
+// ─── LOBBY ────────────────────────────────────────────────────────────────
+function toggleLobby(id) {
+  if (state.lobby.includes(id)) {
+    state.lobby = state.lobby.filter(i=>i!==id);
+  } else {
+    if (state.lobby.length >= 10) { flash("Lobby full — max 10 players"); return; }
+    state.lobby.push(id);
+  }
+  render();
+}
+
+function renderLobby() {
+  const lobbyPlayers = state.lobby.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+  const canBalance   = state.lobby.length === 10;
+  const tags = lobbyPlayers.map(p=>`
+    <div class="lobby-tag">
+      <div class="lobby-tag-dot" style="background:${rankColor(p.rating)}"></div>
+      <span>${esc(p.name)}</span>
+      <button class="lobby-tag-x" data-toggle-lobby="${esc(p.id)}">×</button>
+    </div>`).join('');
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:16px;flex-wrap:wrap">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px">MATCH LOBBY</div>
+      <div style="color:var(--muted);font-size:13px">Select exactly 10 players, then choose how to build teams</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-ghost" id="draft-btn" ${canBalance?'':'disabled'} style="${canBalance?'border-color:var(--blue);color:var(--blue)':''}">
+        ⚑ CAPTAIN'S DRAFT
+      </button>
+      <button class="btn btn-primary" id="balance-btn" ${canBalance?'':'disabled'}>
+        ${canBalance ? '⚖ AUTO BALANCE' : `${state.lobby.length}/10 SELECTED`}
+      </button>
+    </div>
+  </div>
+
+  ${lobbyPlayers.length>0?`
+  <div class="card" style="margin-bottom:20px">
+    <div class="sec-label">CURRENT LOBBY — ${state.lobby.length}/10</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">${tags}</div>
+  </div>`:''}
+
+  <div class="players-grid" id="lobby-grid">
+    ${[...state.players].sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(p=>playerCardHTML(p,true)).join('')}
+  </div>`;
+}
+
+function bindLobby() {
+  document.getElementById("balance-btn")?.addEventListener("click", balanceTeams);
+  document.getElementById("draft-btn")?.addEventListener("click", startDraft);
+  document.getElementById("lobby-grid")?.addEventListener("click", e => {
+    const editId   = e.target.closest("[data-edit]")?.dataset.edit;
+    const removeId = e.target.closest("[data-remove]")?.dataset.remove;
+    if (editId)   { openEdit(editId); return; }
+    if (removeId) { removePlayer(removeId); return; }
+    const toggleId = e.target.closest("[data-toggle-lobby]")?.dataset.toggleLobby;
+    if (toggleId) toggleLobby(toggleId);
+  });
+  document.querySelectorAll(".lobby-tag-x").forEach(btn => {
+    btn.addEventListener("click", e => { e.stopPropagation(); toggleLobby(btn.dataset.toggleLobby); });
+  });
+}
+
+function balanceTeams() {
+  if (state.lobby.length !== 10) return;
+  const pool = state.lobby.map(id=>state.players.find(p=>p.id===id)).filter(Boolean).sort((a,b)=>b.rating-a.rating);
+  const ct=[], t=[];
+  pool.forEach((p,i) => {
+    const block = Math.floor(i/2);
+    const pos   = i%2;
+    if(block%2===0) { pos===0?ct.push(p):t.push(p); }
+    else            { pos===0?t.push(p):ct.push(p); }
+  });
+  state.teams = { ct, t };
+  state.currentMatch = null;
+  state.pendingStats = {};
+  setView("match");
+  flash("Teams balanced — select a map to start");
+}
+
+// ─── CAPTAIN'S DRAFT ─────────────────────────────────────────────────────
+function startDraft() {
+  if (state.lobby.length !== 10) return;
+  const allIds = state.lobby.slice();
+  state.draft = {
+    phase: "captains",  // "captains" | "picks"
+    captains: { ct: null, t: null },
+    pool: allIds,       // all 10 start in pool; captains are removed when selected
+    picks: { ct: [], t: [] },
+    turn: "ct",         // overwritten by coin flip when both captains are set
+    firstPick: null,    // announced after coin flip
+  };
+  state.teams = null;
+  state.currentMatch = null;
+  state.pendingStats = {};
+  setView("match");
+}
+
+function renderDraft() {
+  const d = state.draft;
+
+  // ── Phase 1: select captains ──────────────────────────────────────────
+  if (d.phase === "captains") {
+    const needCT = !d.captains.ct;
+    const needT  = !d.captains.t;
+    const selectingSide = needCT ? "ct" : "t";
+    const selectingColor = selectingSide === "ct" ? "var(--blue)" : "var(--red)";
+    const selectingLabel = selectingSide === "ct" ? "Team 1" : "Team 2";
+
+    const capRow = (side, color, label) => {
+      const capId = d.captains[side];
+      const cap   = capId ? state.players.find(p=>p.id===capId) : null;
+      const teamNum = side === "ct" ? "1" : "2";
+      return `<div style="background:var(--bg2);border:1px solid ${cap?color+'55':'var(--border)'};border-radius:14px;padding:16px;display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:44px;flex-shrink:0">${cap ? rankBadgeSVG(cap.rating,rankColor(cap.rating)) : `<div style="width:40px;height:44px;border:1.5px dashed ${color}55;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;color:${color}55">?</div>`}</div>
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:2px;color:${color};margin-bottom:2px">TEAM ${teamNum} CAPTAIN</div>
+          <div style="font-size:15px;font-weight:700;color:${cap?'var(--text)':'var(--muted)'}">${cap ? esc(cap.name) : 'Not selected'}</div>
+          ${cap ? `<div style="font-size:11px;color:${rankColor(cap.rating)}">${esc(rankLabel(cap.rating))}</div>` : ''}
+        </div>
+      </div>`;
+    };
+
+    const poolCards = d.pool.map(id => {
+      const p = state.players.find(x=>x.id===id);
+      if (!p) return '';
+      return `<div class="card clickable" data-set-captain="${esc(p.id)}" style="padding:12px 14px;display:flex;align-items:center;gap:10px;transition:border-color .15s;"
+           onmouseover="this.style.borderColor='${selectingColor}'" onmouseout="this.style.borderColor=''">
+        <div style="flex-shrink:0;width:32px;height:36px">${rankBadgeSVG(p.rating, rankColor(p.rating))}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(p.name)}</div>
+          <div style="font-size:11px;color:${rankColor(p.rating)};font-weight:600">${esc(rankLabel(p.rating))}</div>
+          <div style="font-size:11px;color:var(--muted)">${esc(p.role)}</div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:${selectingColor};letter-spacing:1px">SET ${selectingLabel} CAP</div>
+      </div>`;
+    }).join('');
+
+    return `
+    <div style="margin-bottom:20px">
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px">CAPTAIN'S DRAFT</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${selectingColor}"></div>
+        <span style="color:${selectingColor};font-weight:700;font-size:14px">Select ${selectingLabel} Captain</span>
+        <span style="color:var(--muted);font-size:13px">${needCT && needT ? '— then select T captain' : ''}</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      ${capRow('ct','var(--blue)','CT')}
+      ${capRow('t','var(--red)','T')}
+    </div>
+    <div class="card">
+      <div class="sec-label" style="margin-bottom:12px">SELECT ${selectingLabel} CAPTAIN FROM LOBBY</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+        ${poolCards}
+      </div>
+    </div>`;
+  }
+
+  // ── Phase 2: picking ──────────────────────────────────────────────────
+  const capCT = state.players.find(p=>p.id===d.captains.ct);
+  const capT  = state.players.find(p=>p.id===d.captains.t);
+  const ctPicks = d.picks.ct.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+  const tPicks  = d.picks.t.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+  const pool    = d.pool.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+  const turnColor = d.turn==="ct" ? "var(--blue)" : "var(--red)";
+  const turnCap   = d.turn==="ct" ? capCT : capT;
+  const picksLeft = 10 - ctPicks.length - tPicks.length;
+
+  const pickRow = (p, side) => {
+    const isCap = p.id===d.captains.ct || p.id===d.captains.t;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg3);border-radius:7px;margin-bottom:5px">
+      <div>
+        <span style="color:var(--text);font-weight:600;font-size:13px">${esc(p.name)}</span>
+        ${isCap?`<span style="font-size:10px;font-weight:700;margin-left:6px;color:${side==='ct'?'var(--blue)':'var(--red)'};letter-spacing:1px">CAP</span>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;color:var(--muted)">${esc(p.role)}</span>
+        <div style="width:28px;height:32px;flex-shrink:0">${rankBadgeSVG(p.rating,rankColor(p.rating))}</div>
+      </div>
+    </div>`;
+  };
+
+  const poolCards = pool.map(p=>`
+    <div class="card clickable" data-draft-pick="${esc(p.id)}" style="padding:12px 14px;display:flex;align-items:center;gap:10px;transition:border-color .15s;"
+         onmouseover="this.style.borderColor='${turnColor}'" onmouseout="this.style.borderColor=''">
+      <div style="flex-shrink:0;width:32px;height:36px">${rankBadgeSVG(p.rating, rankColor(p.rating))}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(p.name)}</div>
+        <div style="font-size:11px;color:${rankColor(p.rating)};font-weight:600">${esc(rankLabel(p.rating))}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(p.role)}</div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:${turnColor}">PICK →</div>
+    </div>`).join('');
+
+  const isFirstPick = (ctPicks.length + tPicks.length) === 2; // only captains so far
+  const coinBanner = isFirstPick ? `
+    <div style="background:${turnColor}18;border:1px solid ${turnColor}44;border-radius:10px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">🪙</span>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:${turnColor}">Coin flip — ${esc(turnCap.name)} picks first!</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${d.firstPick==='ct'?capCT.name+"'s team":capT.name+"'s team"} won the toss</div>
+      </div>
+    </div>` : '';
+
+  return `
+  <div style="margin-bottom:16px">
+    <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px">CAPTAIN'S DRAFT</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="width:8px;height:8px;border-radius:50%;background:${turnColor}"></div>
+      <span style="color:${turnColor};font-weight:700;font-size:14px">${esc(turnCap.name)}</span>
+      <span style="color:var(--muted);font-size:13px">is picking · ${picksLeft} picks remaining</span>
+    </div>
+  </div>
+  ${coinBanner}
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+    <div style="background:var(--bg2);border:1px solid rgba(66,153,225,${d.turn==='ct'?'.5':'.2'});border-radius:14px;padding:16px;transition:border-color .2s">
+      <div style="color:var(--blue);font-weight:800;font-size:16px;letter-spacing:3px;margin-bottom:12px">
+        ${capCT ? capCT.name+"'s team" : 'Team 1'} ${d.turn==='ct'?'▶ PICKING':''}
+      </div>
+      ${ctPicks.map(p=>pickRow(p,'ct')).join('')}
+    </div>
+    <div style="background:var(--bg2);border:1px solid rgba(229,62,62,${d.turn==='t'?'.5':'.2'});border-radius:14px;padding:16px;transition:border-color .2s">
+      <div style="color:var(--red);font-weight:800;font-size:16px;letter-spacing:3px;margin-bottom:12px">
+        ${capT ? capT.name+"'s team" : 'Team 2'} ${d.turn==='t'?'▶ PICKING':''}
+      </div>
+      ${tPicks.map(p=>pickRow(p,'t')).join('')}
+    </div>
+  </div>
+
+  ${pool.length > 0 ? `
+  <div class="card">
+    <div class="sec-label" style="margin-bottom:12px">AVAILABLE — ${pool.length} LEFT</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+      ${poolCards}
+    </div>
+  </div>` : ''}`;
+}
+
+function bindDraft() {
+  // Phase 1: set captains
+  document.querySelectorAll("[data-set-captain]").forEach(el => {
+    el.addEventListener("click", () => {
+      const pid = el.dataset.setCaptain;
+      const d = state.draft;
+      if (!d.captains.ct) {
+        d.captains.ct = pid;
+        d.picks.ct = [pid];
+        d.pool = d.pool.filter(id=>id!==pid);
+        // if T captain already chosen, randomize first pick and go to picks
+        if (d.captains.t) {
+          d.turn = Math.random() < 0.5 ? "ct" : "t";
+          d.firstPick = d.turn;
+          d.phase = "picks";
+        }
+      } else if (!d.captains.t) {
+        d.captains.t = pid;
+        d.picks.t = [pid];
+        d.pool = d.pool.filter(id=>id!==pid);
+        d.turn = Math.random() < 0.5 ? "ct" : "t";
+        d.firstPick = d.turn;
+        d.phase = "picks";
+      }
+      render();
+    });
+  });
+
+  // Phase 2: picks
+  document.querySelectorAll("[data-draft-pick]").forEach(el => {
+    el.addEventListener("click", () => {
+      const pid = el.dataset.draftPick;
+      const d = state.draft;
+      d.picks[d.turn].push(pid);
+      d.pool = d.pool.filter(id=>id!==pid);
+      if (d.pool.length === 0) {
+        const getPlayers = ids => ids.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+        state.teams = { ct: getPlayers(d.picks.ct), t: getPlayers(d.picks.t) };
+        state.draft = null;
+        render();
+        flash("Draft complete — select a map to start");
+      } else {
+        d.turn = d.turn==="ct" ? "t" : "ct";
+        render();
+      }
+    });
+  });
+}
+
+// ─── MATCH ────────────────────────────────────────────────────────────────
+// Returns "PlayerName's team" using highest-rated player, or fallback
+function teamLabel(players, fallback) {
+  if (!players || !players.length) return fallback;
+  const top = [...players].sort((a,b)=>b.rating-a.rating)[0];
+  return top ? `${top.name}'s team` : fallback;
+}
+
+function teamColHTML(team, label, side, showStatBtn, statsEntered) {
+  const avg = (team.reduce((s,p)=>s+p.rating,0)/team.length).toFixed(1);
+  const color = side==="ct" ? "var(--blue)" : "var(--red)";
+  const rows  = team.map(p=>`
+    <div class="team-player-row">
+      <div>
+        <div class="tpr-name">${esc(p.name)}</div>
+        <div class="tpr-role">${esc(p.role)}</div>
+      </div>
+      <div class="tpr-rank" style="color:${rankColor(p.rating)}">${esc(rankLabel(Math.round(p.rating)))}</div>
+    </div>`).join('');
+
+  const statBtn = showStatBtn ? `
+    <button class="btn" style="width:100%;margin-top:12px;
+      background:${statsEntered?'#1e4020':'var(--bg3)'};
+      border:1px solid ${statsEntered?'#2a5a2a':color+'55'};
+      color:${statsEntered?'#68D391':color};"
+      data-stat-modal="${side}">
+      ${statsEntered ? '✓ Stats Entered' : 'Enter Player Stats'}
+    </button>` : '';
+
+  return `
+  <div class="team-col ${side}">
+    <div class="team-header">
+      <span class="team-label" style="color:${color}">${label}</span>
+      <span class="team-avg">avg ${avg} · ${esc(rankLabel(Math.round(parseFloat(avg))))}</span>
+    </div>
+    ${rows}
+    ${statBtn}
+  </div>`;
+}
+
+function renderMatch() {
+  if (state.draft) return renderDraft();
+  if (!state.teams) return `
+    <div class="empty-state">
+      <span class="empty-icon">⚔</span>
+      <p>No teams built yet</p>
+      <small>Go to Lobby, add 10 players, then Auto Balance or Captain's Draft</small><br><br>
+      <button class="btn btn-primary" onclick="setView('lobby')" style="margin-top:12px">GO TO LOBBY</button>
+    </div>`;
+
+  const { ct, t } = state.currentMatch || state.teams;
+  const inMatch = !!state.currentMatch;
+  const bothStats = state.pendingStats.ct && state.pendingStats.t;
+
+  const mapPicker = !inMatch ? `
+    <div class="card">
+      <div class="sec-label">SELECT MAP</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        ${MAPS.map(m=>`<button class="map-btn" data-start-map="${esc(m)}">${esc(m.toUpperCase())}</button>`).join('')}
+      </div>
+    </div>` : '';
+
+  const winPanel = inMatch && bothStats ? `
+    <div class="card" style="margin-top:20px">
+      <div class="sec-label" style="margin-bottom:14px">RECORD RESULT — WHO WON?</div>
+      <div style="display:flex;gap:12px">
+        <button class="win-btn ct" data-winner="ct">${teamLabel(state.currentMatch.ct,"Team 1").toUpperCase()} WIN</button>
+        <button class="win-btn t"  data-winner="t">${teamLabel(state.currentMatch.t,"Team 2").toUpperCase()} WIN</button>
+      </div>
+    </div>` : '';
+
+  const waitMsg = inMatch && !bothStats ? `
+    <p style="color:var(--muted);font-size:13px;text-align:center;margin-top:16px">
+      Enter stats for both teams above to unlock the result panel
+    </p>` : '';
+
+  const matchHeader = inMatch ? `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:18px;font-weight:700;color:var(--text)">MATCH IN PROGRESS</div>
+        <div style="color:var(--red);font-size:14px;font-weight:600;margin-top:2px">MAP: ${esc(state.currentMatch.map.toUpperCase())}</div>
+      </div>
+      <button class="btn btn-ghost" id="leetify-import-btn" style="border-color:#f84982;color:#f84982;gap:8px;align-self:flex-start">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#f84982" style="flex-shrink:0"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        IMPORT FROM LEETIFY
+      </button>
+    </div>` : `
+    <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px">TEAMS BALANCED</div>
+    <div style="color:var(--muted);font-size:13px;margin-bottom:20px">Select a map to start the match</div>`;
+
+  return `
+  ${matchHeader}
+  <div class="teams-row" style="margin-bottom:20px">
+    ${teamColHTML(ct, teamLabel(ct,"Team 1"), "ct", inMatch, !!state.pendingStats.ct)}
+    ${teamColHTML(t,  teamLabel(t, "Team 2"), "t",  inMatch, !!state.pendingStats.t)}
+  </div>
+  ${mapPicker}
+  ${winPanel}
+  ${waitMsg}`;
+}
+
+function bindMatch() {
+  if (state.draft) { bindDraft(); return; }
+  document.querySelectorAll("[data-start-map]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const map = btn.dataset.startMap;
+      state.currentMatch = { id:genId(), map, ct:state.teams.ct, t:state.teams.t, startedAt:Date.now() };
+      state.pendingStats = {};
+      render();
+    });
+  });
+  document.querySelectorAll("[data-stat-modal]").forEach(btn => {
+    btn.addEventListener("click", () => openStatModal(btn.dataset.statModal));
+  });
+  document.querySelectorAll("[data-winner]").forEach(btn => {
+    btn.addEventListener("click", () => finalizeMatch(btn.dataset.winner));
+  });
+  document.getElementById("leetify-import-btn")?.addEventListener("click", openLeetifyImport);
+}
+
+// ─── Leetify import ──────────────────────────────────────────────────────
+function openLeetifyImport() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.id = "leetify-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:min(520px,95vw)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f84982" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <h3 style="color:var(--text);font-size:16px;">Import from Leetify</h3>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.6">
+        Paste the Leetify match URL below. Stats will be fetched and matched to your roster players by name — you can adjust any mappings before confirming.
+      </p>
+      <input id="leetify-url" type="text" placeholder="https://leetify.com/app/match-details/xxxxxxxx-.../overview"
+        style="width:100%;margin-bottom:12px" />
+      <div id="leetify-status" style="font-size:12px;color:var(--muted);min-height:18px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" id="leetify-cancel">Cancel</button>
+        <button class="btn btn-primary" style="flex:2;background:#f84982;border:none" id="leetify-fetch">FETCH STATS</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const setStatus = (msg, color="#5a7080") => {
+    const el = document.getElementById("leetify-status");
+    if (el) { el.textContent = msg; el.style.color = color; }
+  };
+
+  document.getElementById("leetify-cancel").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+
+  document.getElementById("leetify-fetch").addEventListener("click", async () => {
+    const url = document.getElementById("leetify-url").value.trim();
+    // extract UUID from URL
+    const match = url.match(/match-details\/([0-9a-f-]{36})/i);
+    if (!match) { setStatus("Could not find a match ID in that URL. Paste the full Leetify match URL.", "#e53e3e"); return; }
+    const gameId = match[1];
+    setStatus("Fetching match data from Leetify…");
+    document.getElementById("leetify-fetch").disabled = true;
+
+    try {
+      const res = await fetch(`https://api.cs-prod.leetify.com/api/games/${gameId}`);
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const data = await res.json();
+      overlay.remove();
+      openLeetifyMapping(data);
+    } catch(err) {
+      setStatus(`Failed to fetch: ${err.message}. Make sure the match is public on Leetify.`, "#e53e3e");
+      document.getElementById("leetify-fetch").disabled = false;
+    }
+  });
+}
+
+function openLeetifyMapping(data) {
+  // Flatten all player stats from the Leetify response
+  // The public API returns data.playerStats[] or data.stats[] depending on version
+  // Log the raw response so field names can be inspected if mapping breaks
+  console.log("[Leetify import] raw response:", JSON.stringify(data).slice(0, 2000));
+  const rawStats = data.playerStats || data.stats || data.players || [];
+  if (!rawStats.length) {
+    flash("No player stats found in Leetify response — check console for raw data");
+    console.log("[Leetify import] full response:", data);
+    return;
+  }
+
+  const allRosterPlayers = [
+    ...(state.currentMatch.ct || []),
+    ...(state.currentMatch.t  || [])
+  ];
+
+  // Build simple name similarity scorer
+  const similarity = (a, b) => {
+    a = a.toLowerCase().replace(/[^a-z0-9]/g, "");
+    b = b.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (a === b) return 1;
+    if (a.includes(b) || b.includes(a)) return 0.8;
+    let matches = 0;
+    for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] === b[i]) matches++;
+    return matches / Math.max(a.length, b.length);
+  };
+
+  // Auto-suggest best match for each Leetify player
+  const leetifyPlayers = rawStats.map(s => {
+    const name    = s.name || s.player_name || s.steam_name || s.steamName || s.nickname || "Unknown";
+    const kills   = s.totalKills   ?? s.total_kills   ?? s.kills   ?? 0;
+    const deaths  = s.totalDeaths  ?? s.total_deaths  ?? s.deaths  ?? 0;
+    const assists = s.totalAssists ?? s.total_assists ?? s.assists ?? 0;
+    const damage  = s.totalDamage  ?? s.total_damage  ?? s.damage  ?? 0;
+    const leetifyRating = s.leetifyRating ?? s.leetify_rating ?? null;
+    // initialTeamNumber: 3 = CT, 2 = T (Valve/CS2 convention)
+    const teamNum = s.initialTeamNumber ?? s.teamNumber ?? s.team_number ?? null;
+    const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
+    console.log("[Leetify import] player:", name, "K/D/A:", kills, deaths, assists, "dmg:", damage, "team:", teamNum, "->", side);
+    // find best roster match — check player name AND all aliases
+    let bestId = "", bestScore = -1;
+    allRosterPlayers.forEach(p => {
+      const namesToCheck = [p.name, ...(p.aliases || [])];
+      const score = Math.max(...namesToCheck.map(n => similarity(name, n)));
+      if (score > bestScore) { bestScore = score; bestId = p.id; }
+    });
+    return { name, kills, deaths, assists, damage, leetifyRating, side, suggestedId: bestId };
+  });
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:min(580px,95vw)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f84982" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <h3 style="color:var(--text);font-size:16px;">Map Leetify Players to Roster</h3>
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:16px">
+        Match each Steam name from Leetify to your roster player. Best guesses are pre-filled — adjust where needed.
+      </p>
+      <div id="leetify-mappings">
+        ${leetifyPlayers.map((lp, i) => `
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:10px;padding:10px 12px;background:var(--bg3);border-radius:9px;border:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text)">${esc(lp.name)}</div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${lp.kills}/${lp.deaths}/${lp.assists}</div>
+          </div>
+          <div style="color:var(--muted);font-size:16px">→</div>
+          <select data-lp-index="${i}" style="width:100%;font-size:13px">
+            <option value="">— skip —</option>
+            ${allRosterPlayers.map(p => `<option value="${esc(p.id)}" ${p.id===lp.suggestedId?'selected':''}>${esc(p.name)}</option>`).join('')}
+          </select>
+        </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" id="lmap-cancel">Cancel</button>
+        <button class="btn btn-primary" style="flex:2;background:#f84982;border:none" id="lmap-confirm">APPLY STATS</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+  document.getElementById("lmap-cancel").addEventListener("click", () => overlay.remove());
+
+  document.getElementById("lmap-confirm").addEventListener("click", () => {
+    const selects = overlay.querySelectorAll("select[data-lp-index]");
+    const statsBySide = { ct: {}, t: {} };
+
+    selects.forEach(sel => {
+      const idx = parseInt(sel.dataset.lpIndex);
+      const pid = sel.value;
+      if (!pid) return;
+      const lp = leetifyPlayers[idx];
+      // prefer Leetify's own team assignment; fall back to checking current match teams
+      const inCT = state.currentMatch.ct.some(p=>p.id===pid);
+      const side = lp.side || (inCT ? "ct" : "t");
+      statsBySide[side][pid] = { kills: lp.kills, deaths: lp.deaths, assists: lp.assists, damage: lp.damage||0, leetifyRating: lp.leetifyRating??null };
+    });
+
+    // Ensure every player on each team has an entry — fill gaps with zeros
+    // so pendingStats is always complete for both sides
+    ["ct","t"].forEach(side => {
+      const team = state.currentMatch[side];
+      if (!state.pendingStats[side]) state.pendingStats[side] = {};
+      team.forEach(p => {
+        if (statsBySide[side][p.id]) {
+          // imported stat — always overwrite
+          state.pendingStats[side][p.id] = statsBySide[side][p.id];
+        } else if (!state.pendingStats[side][p.id]) {
+          // no existing manual stat either — fill with zeros as placeholder
+          state.pendingStats[side][p.id] = { kills: 0, deaths: 0, assists: 0 };
+        }
+        // else: player already has a manually entered stat — leave it alone
+      });
+    });
+
+    overlay.remove();
+    render();
+    const mapped = Object.values(statsBySide.ct).length + Object.values(statsBySide.t).length;
+    flash(`Leetify stats applied for ${mapped} players — open each team to review`);
+  });
+}
+
+// ─── Stat modal ─────────────────────────────────────────────────────────
+function openStatModal(side) {
+  const team  = side==="ct" ? state.currentMatch.ct : state.currentMatch.t;
+  const color = side==="ct" ? "#4299E1" : "#e53e3e";
+  const teamPlayers = side==="ct" ? state.currentMatch.ct : state.currentMatch.t;
+  const label = teamLabel(teamPlayers, side==="ct" ? "Team 1" : "Team 2");
+
+  const existing = state.pendingStats[side] || {};
+  const rows = team.map(p => {
+    const s = existing[p.id] || { kills:15, deaths:15, assists:3 };
+    const kd = s.deaths>0 ? (s.kills/s.deaths).toFixed(2) : s.kills;
+    return `
+    <div class="stat-player">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="color:var(--text);font-weight:600">${esc(p.name)}</span>
+        <span style="color:var(--muted);font-size:12px" id="kd-${esc(p.id)}">K/D: ${kd}</span>
+      </div>
+      <div class="stat-fields">
+        ${["kills","deaths","assists"].map(f=>`
+          <div>
+            <label>${f}</label>
+            <input type="number" min="0" max="60" value="${s[f]}" data-pid="${esc(p.id)}" data-field="${f}" />
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-title">
+        <div class="modal-dot" style="background:${color}"></div>
+        <h3>${esc(label)} — Player Stats</h3>
+      </div>
+      ${rows}
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" id="stat-cancel">Cancel</button>
+        <button class="btn btn-primary" style="flex:2" id="stat-confirm">CONFIRM STATS</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // live K/D update
+  overlay.querySelectorAll("input[type=number]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const pid   = inp.dataset.pid;
+      const field = inp.dataset.field;
+      const block = overlay.querySelector(`[data-pid="${pid}"]`)?.closest(".stat-player");
+      if(!block) return;
+      const k = +block.querySelector("[data-field=kills]").value;
+      const d = +block.querySelector("[data-field=deaths]").value;
+      const kdEl = overlay.querySelector(`#kd-${pid}`);
+      if(kdEl) kdEl.textContent = `K/D: ${d>0?(k/d).toFixed(2):k}`;
+    });
+  });
+
+  document.getElementById("stat-cancel").addEventListener("click", () => overlay.remove());
+  document.getElementById("stat-confirm").addEventListener("click", () => {
+    const stats = {};
+    team.forEach(p => {
+      const block = overlay.querySelector(`input[data-pid="${p.id}"][data-field="kills"]`)?.closest(".stat-player");
+      if(!block) return;
+      stats[p.id] = {
+        kills:   Math.max(0,+block.querySelector("[data-field=kills]").value   || 0),
+        deaths:  Math.max(0,+block.querySelector("[data-field=deaths]").value  || 0),
+        assists: Math.max(0,+block.querySelector("[data-field=assists]").value || 0),
+      };
+    });
+    state.pendingStats[side] = stats;
+    overlay.remove();
+    render();
+    flash(`${label} stats saved`);
+  });
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+}
+
+// ─── Finalize match ────────────────────────────────────────────────────────
+function finalizeMatch(winner) {
+  if (!state.pendingStats.ct || !state.pendingStats.t) { flash("Enter stats for both teams first"); return; }
+  const match = state.currentMatch;
+  const allPlayers = [...match.ct, ...match.t];
+
+  allPlayers.forEach(p => {
+    const isCT   = match.ct.some(x=>x.id===p.id);
+    const side   = isCT?"ct":"t";
+    const won    = winner===side;
+    const s      = state.pendingStats[side][p.id] || {kills:0,deaths:0,assists:0};
+    const kd     = s.deaths>0 ? s.kills/s.deaths : s.kills;
+    const opp    = isCT ? match.t : match.ct;
+    const curElo = p.elo ?? 1000;
+    const oppAvgElo = opp.reduce((a,x)=>a+(x.elo??1000),0)/opp.length;
+    const eloDelta  = calcEloPoints(curElo, oppAvgElo, won, kd);
+    const newElo    = Math.max(0, curElo + eloDelta);
+
+    const idx = state.players.findIndex(x=>x.id===p.id);
+    if(idx>-1) {
+      state.players[idx].elo = newElo;
+      // rating stays untouched
+      state.players[idx].matchHistory = [
+        ...(state.players[idx].matchHistory||[]),
+        { matchId:match.id, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, eloDelta }
+      ];
+    }
+  });
+
+  const record = {
+    id:match.id, map:match.map, winner, playedAt:Date.now(),
+    teams:{ ct:match.ct.map(p=>p.id), t:match.t.map(p=>p.id) },
+    scores:state.pendingStats
+  };
+  state.matches.unshift(record);
+  state.teams = null; state.currentMatch = null; state.pendingStats = {}; state.lobby = [];
+  saveData();
+  const winningTeam = winner==="ct" ? match.ct : match.t;
+  flash(`${teamLabel(winningTeam,"Team 1")} wins on ${match.map}`);
+  setView("history");
+}
+
+// ─── Match detail modal ───────────────────────────────────────────────────
+function openMatchDetail(matchId) {
+  const m = state.matches.find(x=>x.id===matchId);
+  if (!m) return;
+  const date = new Date(m.playedAt).toLocaleString("en-US",{weekday:"short",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+  const ctPs = m.teams.ct.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+  const tPs  = m.teams.t.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+
+  const sideRows = (players, sideKey, label, color) => {
+    const won = m.winner === sideKey;
+    const rows = players.map(p => {
+      const hist = (p.matchHistory||[]).find(h=>h.matchId===m.id);
+      const kills   = hist?.kills   ?? "—";
+      const deaths  = hist?.deaths  ?? "—";
+      const assists = hist?.assists ?? "—";
+      const kd = (hist && hist.deaths > 0) ? (hist.kills/hist.deaths).toFixed(2) : (hist ? hist.kills : "—");
+      const delta = hist?.eloDelta ?? hist?.ratingDelta ?? 0;
+      const dColor = delta>0?"#68D391":delta<0?"#fc8181":"var(--muted)";
+      const rc = rankColor(p.rating);
+      return `
+      <div style="display:grid;grid-template-columns:28px 1fr auto auto auto auto;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px;font-size:13px">
+        <div style="width:28px;height:32px">${rankBadgeSVG(p.rating,rc)}</div>
+        <div>
+          <div style="color:var(--text);font-weight:700;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px" data-player-profile="${esc(p.id)}">${esc(p.name)}</div>
+          <div style="font-size:10px;color:${rc}">${esc(rankLabel(p.rating))}</div>
+        </div>
+        <span style="color:var(--muted);font-family:var(--mono);font-size:12px">${kills}/${deaths}/${assists}</span>
+        <span style="color:var(--muted);font-family:var(--mono);font-size:11px">KD ${kd}</span>
+        <span style="color:${dColor};font-weight:700;font-family:var(--mono);font-size:12px">${delta>0?"+":""}${typeof hist?.eloDelta==="number"?delta+" ELO":delta.toFixed(2)}</span>
+      </div>`;
+    }).join('');
+    return `
+    <div style="margin-bottom:16px">
+      <div style="color:${color};font-size:12px;font-weight:800;letter-spacing:2px;margin-bottom:8px">${label} ${won?"★ WIN":"LOSS"}</div>
+      ${rows}
+    </div>`;
+  };
+
+  const badgeStyle = m.winner==="ct" ? "background:#1a2a3a;color:#4299E1" : "background:#2a1a1a;color:#e53e3e";
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:min(560px,95vw)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(m.map)}</div>
+        <span style="padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;${badgeStyle}">${esc(teamLabel(m.winner==="ct"?ctPs:tPs,"Team 1"))} WIN</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:18px;font-family:var(--mono)">${esc(date)}</div>
+      <div style="max-height:480px;overflow-y:auto">
+        ${sideRows(ctPs,"ct", teamLabel(ctPs,"Team 1").toUpperCase(), "#4299E1")}
+        ${sideRows(tPs, "t",  teamLabel(tPs, "Team 2").toUpperCase(), "#e53e3e")}
+      </div>
+      <button class="btn btn-ghost" style="width:100%;margin-top:12px" id="mdetail-close">Close</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById("mdetail-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => {
+    const pid = e.target.closest("[data-player-profile]")?.dataset.playerProfile;
+    if (pid) { overlay.remove(); openPlayerProfile(pid); return; }
+    if (e.target===overlay) overlay.remove();
+  });
+}
+
+// ─── Player profile modal ─────────────────────────────────────────────────
+function openPlayerProfile(pid) {
+  const p = state.players.find(x=>x.id===pid);
+  if (!p) return;
+  const hist = p.matchHistory || [];
+  const wins  = hist.filter(m=>m.won).length;
+  const losses = hist.length - wins;
+  const avgKD = hist.length > 0
+    ? (hist.reduce((s,m)=>s+(m.deaths>0?m.kills/m.deaths:m.kills),0)/hist.length).toFixed(2)
+    : "—";
+  const avgKills   = hist.length > 0 ? (hist.reduce((s,m)=>s+m.kills,0)/hist.length).toFixed(1) : "—";
+  const avgDeaths  = hist.length > 0 ? (hist.reduce((s,m)=>s+m.deaths,0)/hist.length).toFixed(1) : "—";
+  const avgAssists = hist.length > 0 ? (hist.reduce((s,m)=>s+m.assists,0)/hist.length).toFixed(1) : "—";
+  const elo        = p.elo ?? 1000;
+  const netElo     = elo - 1000;
+  const netColor   = netElo>0?"#68D391":netElo<0?"#fc8181":"var(--muted)";
+  const color      = rankColor(p.rating);
+
+  // Recent matches (up to 10, most recent first)
+  const recentRows = hist.slice().reverse().slice(0,10).map(m => {
+    const matchRecord = state.matches.find(x=>x.id===m.matchId);
+    const map  = matchRecord ? matchRecord.map : "Unknown";
+    const date = matchRecord ? new Date(matchRecord.playedAt).toLocaleString("en-US",{month:"short",day:"numeric"}) : "";
+    const eloDeltaVal = m.eloDelta ?? m.ratingDelta ?? 0;
+    const dColor = eloDeltaVal>0?"#68D391":eloDeltaVal<0?"#fc8181":"var(--muted)";
+    const kd = m.deaths>0?(m.kills/m.deaths).toFixed(2):m.kills;
+    const mid = matchRecord ? matchRecord.id : "";
+    return `
+    <div style="display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px;font-size:13px">
+      <div style="width:8px;height:8px;border-radius:50%;background:${m.won?"#68D391":"#fc8181"};flex-shrink:0"></div>
+      <div>
+        <span ${mid?`data-open-match="${esc(mid)}" style="color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px"`:`style="color:var(--text);font-weight:600"`}>${esc(map)}</span>
+        <span style="color:var(--muted);font-size:11px;margin-left:6px">${esc(date)}</span>
+      </div>
+      <span style="color:var(--muted);font-family:var(--mono)">${m.kills}/${m.deaths}/${m.assists}</span>
+      <span style="color:var(--muted);font-family:var(--mono);font-size:11px">KD ${kd}</span>
+      <span style="color:${dColor};font-weight:700;font-family:var(--mono)">${eloDeltaVal>0?"+":""}${eloDeltaVal} ELO</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:13px;padding:10px 0">No match history yet</div>';
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:min(540px,95vw)">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+        <div style="flex-shrink:0">${rankBadgeSVG(p.rating, color)}</div>
+        <div style="flex:1">
+          <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(p.name)}</div>
+          <div style="font-size:12px;color:${color};font-weight:700;margin-top:2px">${esc(rankLabel(p.rating))} · ${p.rating.toFixed(1)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">${esc(p.role)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:800;color:${netColor};font-family:var(--mono)">${elo}</div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px">ELO (${netElo>=0?"+":""}${netElo})</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
+        ${[
+          ["W/L", `${wins}/${losses}`],
+          ["AVG K/D", avgKD],
+          ["AVG K/D/A", `${avgKills}/${avgDeaths}/${avgAssists}`],
+          ["MATCHES", hist.length],
+        ].map(([lbl,val])=>`
+          <div style="background:var(--bg3);border-radius:9px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">${lbl}</div>
+            <div style="font-size:15px;font-weight:700;color:var(--text);font-family:var(--mono)">${val}</div>
+          </div>`).join('')}
+      </div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">RECENT MATCHES</div>
+      <div style="max-height:300px;overflow-y:auto">${recentRows}</div>
+
+      <button class="btn btn-ghost" style="width:100%;margin-top:16px" id="profile-close">Close</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById("profile-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => {
+    const mid = e.target.closest("[data-open-match]")?.dataset.openMatch;
+    if (mid) { overlay.remove(); openMatchDetail(mid); return; }
+    if(e.target===overlay) overlay.remove();
+  });
+}
+
+// ─── HISTORY ──────────────────────────────────────────────────────────────
+function renderHistory() {
+  if (state.matches.length===0) return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:18px;font-weight:700;color:var(--text)">MATCH HISTORY</div>
+      <button class="btn btn-ghost" id="bulk-import-btn" style="border-color:#f84982;color:#f84982;gap:8px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="#f84982"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        IMPORT PAST MATCHES
+      </button>
+    </div>
+    <div class="empty-state" style="padding-top:30px">
+      <span class="empty-icon">📋</span>
+      <p>No matches yet</p>
+      <small>Play a match or import past Leetify matches above</small>
+    </div>`;
+
+  const cards = state.matches.map(m => {
+    const ctPs = m.teams.ct.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+    const tPs  = m.teams.t.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+    const date = new Date(m.playedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+
+    const sideHTML = (sideKey, label, color, ps) => {
+      const won = m.winner===sideKey;
+      const rows = ps.map(p => {
+        const hist = (p.matchHistory||[]).find(h=>h.matchId===m.id);
+        const delta = hist?.eloDelta ?? hist?.ratingDelta ?? 0;
+        const kd = hist ? `${hist.kills}/${hist.deaths}/${hist.assists}` : "—";
+        const dColor = delta>0?"#68D391":delta<0?"#fc8181":"var(--muted)";
+        const deltaLabel = typeof hist?.eloDelta === "number"
+          ? `${delta>0?"+":""}${delta} ELO`
+          : `${delta>0?"+":""}${delta.toFixed(2)}`;
+        const lrRaw = hist?.leetifyRating != null ? hist.leetifyRating * 100 : null;
+        const lr = lrRaw != null ? `${lrRaw >= 0 ? "+" : ""}${lrRaw.toFixed(2)}` : null;
+        const lrColor = lrRaw != null ? (lrRaw > 1 ? "#68D391" : lrRaw < -5 ? "#fc8181" : "var(--muted)") : "var(--muted)";
+        return `
+        <div class="hist-player-row">
+          <span style="color:var(--text);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;"
+                data-player-profile="${esc(p.id)}">${esc(p.name)}</span>
+          <span style="color:var(--muted);font-family:var(--mono)">${esc(kd)}</span>
+          ${lr != null ? `<span style="color:${lrColor};font-family:var(--mono);font-size:11px" title="Leetify Rating">LR ${lr}</span>` : '<span></span>'}
+          <span style="color:${dColor};font-weight:600;font-family:var(--mono)">${deltaLabel}</span>
+        </div>`;
+      }).join('');
+      return `
+      <div>
+        <div style="color:${color};font-size:12px;font-weight:700;margin-bottom:8px;letter-spacing:1px">
+          ${label} ${won?"★ WIN":"LOSS"}
+        </div>
+        ${rows}
+      </div>`;
+    };
+
+    const winTeam = m.winner==="ct" ? ctPs : tPs;
+    const badgeStyle = m.winner==="ct"
+      ? "background:#1a2a3a;color:#4299E1"
+      : "background:#2a1a1a;color:#e53e3e";
+
+    return `
+    <div class="hist-card">
+      <div class="hist-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px;font-weight:700;color:var(--text)">${esc(m.map)}</span>
+          <span class="hist-badge" style="${badgeStyle}">${esc(teamLabel(winTeam,"Team 1"))} WIN</span>
+          ${m.leetifyGameId ? `<a href="https://leetify.com/app/match-details/${esc(m.leetifyGameId)}/overview" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#f84982;text-decoration:none;letter-spacing:.5px;padding:3px 8px;border:1px solid #f8498244;border-radius:6px" title="View on Leetify"><svg width="10" height="10" viewBox="0 0 24 24" fill="#f84982"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>LEETIFY</a>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="color:var(--muted);font-size:12px;font-family:var(--mono)">${esc(date)}</span>
+          <button class="btn-icon danger" data-delete-match="${esc(m.id)}" title="Remove match" style="font-size:13px;padding:4px 8px">✕</button>
+        </div>
+      </div>
+      ${m.roundScore ? `
+      <div style="display:flex;justify-content:center;align-items:center;gap:0;margin-bottom:12px">
+        <div style="text-align:right;flex:1">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#4299E1;margin-bottom:2px">${esc(teamLabel(ctPs,"Team 1"))}</div>
+        </div>
+        <div style="padding:4px 18px;background:var(--bg3);border-radius:10px;margin:0 12px;text-align:center;min-width:80px">
+          <div style="font-size:22px;font-weight:800;color:var(--text);font-family:var(--mono);letter-spacing:4px">
+            ${m.roundScore.ct} <span style="color:var(--muted);font-size:16px">:</span> ${m.roundScore.t}
+          </div>
+        </div>
+        <div style="text-align:left;flex:1">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#e53e3e;margin-bottom:2px">${esc(teamLabel(tPs,"Team 2"))}</div>
+        </div>
+      </div>` : ''}
+      <div class="hist-teams">
+        ${sideHTML("ct", teamLabel(ctPs,"Team 1"), "#4299E1", ctPs)}
+        ${sideHTML("t",  teamLabel(tPs, "Team 2"), "#e53e3e", tPs)}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div style="font-size:18px;font-weight:700;color:var(--text)">MATCH HISTORY</div>
+    <button class="btn btn-ghost" id="bulk-import-btn" style="border-color:#f84982;color:#f84982;gap:8px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="#f84982"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      IMPORT PAST MATCHES
+    </button>
+  </div>
+  <div id="history-list">${cards}</div>`;
+}
+
+function deleteMatch(matchId) {
+  const m = state.matches.find(x=>x.id===matchId);
+  if (!m) return;
+  // Reverse ELO deltas for all players in this match
+  state.players.forEach(p => {
+    const entry = (p.matchHistory||[]).find(h=>h.matchId===matchId);
+    if (!entry) return;
+    p.elo = Math.max(0, (p.elo ?? 1000) - (entry.eloDelta ?? 0));
+    p.matchHistory = p.matchHistory.filter(h=>h.matchId!==matchId);
+  });
+  state.matches = state.matches.filter(x=>x.id!==matchId);
+  saveData();
+  render();
+  flash(`Match removed and ratings reversed`);
+}
+
+function bindHistory() {
+  document.getElementById("history-list")?.addEventListener("click", e => {
+    const pid = e.target.closest("[data-player-profile]")?.dataset.playerProfile;
+    if (pid) { openPlayerProfile(pid); return; }
+    const mid = e.target.closest("[data-delete-match]")?.dataset.deleteMatch;
+    if (mid) {
+      const m = state.matches.find(x=>x.id===mid);
+      const winPs  = m ? (m.winner==="ct" ? m.teams.ct : m.teams.t).map(id=>state.players.find(p=>p.id===id)).filter(Boolean) : [];
+      const label  = m ? `${m.map} (${teamLabel(winPs,"Team 1")} WIN)` : "this match";
+      if (confirm(`Remove ${label}?\n\nThis will reverse all rating changes from this match.`)) {
+        deleteMatch(mid);
+      }
+    }
+  });
+  document.getElementById("bulk-import-btn")?.addEventListener("click", openBulkImport);
+}
+
+// ─── Bulk Leetify import ──────────────────────────────────────────────────
+function openBulkImport() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.id = "bulk-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:min(560px,95vw)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f84982" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <h3 style="color:var(--text);font-size:16px">Import Past Matches from Leetify</h3>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.6">
+        Paste one Leetify match URL per line. Each match will be fetched, players auto-matched to your roster by name and aliases, and you can confirm or adjust each before saving.
+      </p>
+      <textarea id="bulk-urls" rows="6" placeholder="https://leetify.com/app/match-details/xxxxxxxx-.../overview&#10;https://leetify.com/app/match-details/yyyyyyyy-.../overview"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px;color:var(--text);font-family:var(--mono);font-size:12px;resize:vertical;margin-bottom:12px"></textarea>
+      <div id="bulk-status" style="font-size:12px;color:var(--muted);min-height:18px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" id="bulk-cancel">Cancel</button>
+        <button class="btn btn-primary" style="flex:2;background:#f84982;border:none" id="bulk-fetch">FETCH MATCHES</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const setStatus = (msg, color="var(--muted)") => {
+    const el = document.getElementById("bulk-status");
+    if (el) { el.textContent = msg; el.style.color = color; }
+  };
+
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+  document.getElementById("bulk-cancel").addEventListener("click", () => overlay.remove());
+
+  document.getElementById("bulk-fetch").addEventListener("click", async () => {
+    const raw = document.getElementById("bulk-urls").value.trim();
+    const lines = raw.split("\n").map(l=>l.trim()).filter(Boolean);
+    const gameIds = [];
+    for (const line of lines) {
+      const m = line.match(/match-details\/([0-9a-f-]{36})/i);
+      if (m) gameIds.push(m[1]);
+    }
+    if (!gameIds.length) { setStatus("No valid Leetify match URLs found.", "#e53e3e"); return; }
+
+    document.getElementById("bulk-fetch").disabled = true;
+    setStatus(`Fetching ${gameIds.length} match${gameIds.length>1?"es":""}…`);
+
+    const results = [];
+    for (let i = 0; i < gameIds.length; i++) {
+      setStatus(`Fetching match ${i+1} of ${gameIds.length}…`);
+      try {
+        const res = await fetch(`https://api.cs-prod.leetify.com/api/games/${gameIds[i]}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        results.push({ gameId: gameIds[i], data, error: null });
+      } catch(err) {
+        results.push({ gameId: gameIds[i], data: null, error: err.message });
+      }
+    }
+
+    const ok  = results.filter(r=>r.data);
+    const bad = results.filter(r=>r.error);
+    overlay.remove();
+
+    if (!ok.length) {
+      flash(`All ${bad.length} fetches failed — check match URLs and privacy settings`);
+      return;
+    }
+    if (bad.length) flash(`${bad.length} match(es) failed to fetch — skipped`);
+
+    openBulkMapping(ok.map(r=>r.data));
+  });
+}
+
+function openBulkMapping(matchDataList) {
+  // similarity scorer (same as single import)
+  const similarity = (a, b) => {
+    a = a.toLowerCase().replace(/[^a-z0-9]/g, "");
+    b = b.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+    if (a.includes(b) || b.includes(a)) return 0.8;
+    let matches = 0;
+    for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] === b[i]) matches++;
+    return matches / Math.max(a.length, b.length);
+  };
+
+  const findBestPlayer = (steamName) => {
+    let bestId = "", bestScore = -1;
+    state.players.forEach(p => {
+      const candidates = [p.name, ...(p.aliases||[])];
+      const score = Math.max(...candidates.map(n => similarity(steamName, n)));
+      if (score > bestScore) { bestScore = score; bestId = p.id; }
+    });
+    return bestScore > 0.3 ? bestId : "";
+  };
+
+  // Build a list of matches with their extracted player stats
+  const parsedMatches = matchDataList.map(data => {
+    console.log("[Leetify bulk] raw top-level keys:", Object.keys(data));
+    const rawStats = data.playerStats || data.stats || data.players || [];
+    if (rawStats.length) console.log("[Leetify bulk] first player raw:", JSON.stringify(rawStats[0]).slice(0,400));
+    const map = data.mapName || data.map_name || data.map || "Unknown";
+    const playedAt = data.finishedAt || data.finished_at || data.createdAt || Date.now();
+    // figure out winner from team_scores
+    // Winner: group players by initialTeamNumber, sum their total rounds won.
+    // Each player reports the same value for their team so one per team is enough.
+    // Team with more total rounds (ctRoundsWon + tRoundsWon) wins.
+    let winner = "ct"; // "ct" = team2 won, "t" = team3 won (internal labels only)
+    const ps2 = data.playerStats || data.stats || [];
+    if (ps2.length) {
+      const team2p = ps2.find(s => (s.initialTeamNumber ?? s.teamNumber) === 2);
+      const team3p = ps2.find(s => (s.initialTeamNumber ?? s.teamNumber) === 3);
+      if (team2p && team3p) {
+        const team2wins = (team2p.ctRoundsWon||0) + (team2p.tRoundsWon||0);
+        const team3wins = (team3p.ctRoundsWon||0) + (team3p.tRoundsWon||0);
+        winner = team2wins > team3wins ? "ct" : "t";
+        console.log("[Leetify] team2 totalWins:", team2wins, "team3 totalWins:", team3wins, "-> winner:", winner==="ct"?"team2":"team3");
+      }
+    }
+    const players = rawStats.map(s => {
+      const name    = s.name || s.player_name || s.steam_name || s.steamName || s.nickname || "Unknown";
+      const kills   = s.totalKills   ?? s.total_kills   ?? s.kills   ?? 0;
+      const deaths  = s.totalDeaths  ?? s.total_deaths  ?? s.deaths  ?? 0;
+      const assists = s.totalAssists ?? s.total_assists ?? s.assists ?? 0;
+      const damage  = s.totalDamage  ?? s.total_damage  ?? s.damage  ?? 0;
+      const leetifyRating = s.leetifyRating ?? s.leetify_rating ?? null;
+      // initialTeamNumber: 3 = CT, 2 = T (confirmed from Leetify API)
+      const teamNum = s.initialTeamNumber ?? s.teamNumber ?? s.team_number ?? null;
+      const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
+      console.log("[Leetify bulk] player", name, "initialTeamNumber:", teamNum, "->", side);
+      return { name, kills, deaths, assists, damage, leetifyRating, teamNum, side, suggestedId: findBestPlayer(name) };
+    });
+    // Derive round score: each team's total rounds won
+    const team2p = ps2.find ? ps2.find(s=>(s.initialTeamNumber??s.teamNumber)===2) : null;
+    const team3p = ps2.find ? ps2.find(s=>(s.initialTeamNumber??s.teamNumber)===3) : null;
+    const team2wins = team2p ? (team2p.ctRoundsWon||0)+(team2p.tRoundsWon||0) : null;
+    const team3wins = team3p ? (team3p.ctRoundsWon||0)+(team3p.tRoundsWon||0) : null;
+    // ct bucket = team2, t bucket = team3
+    const roundScore = (team2wins !== null && team3wins !== null)
+      ? { ct: team2wins, t: team3wins } : null;
+    return { map, playedAt: new Date(playedAt).getTime() || Date.now(), winner, players, gameId: data.id || data.gameId || "", roundScore };
+  });
+
+  // Render one accordion section per match
+  const matchSections = parsedMatches.map((m, mi) => {
+    const date = new Date(m.playedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+    const rows = m.players.map((lp, pi) => {
+      const autoSide = lp.side || "ct";
+      return `
+      <div style="display:grid;grid-template-columns:1fr 80px 1fr;align-items:center;gap:8px;margin-bottom:7px">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text)">${esc(lp.name)}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${lp.kills}/${lp.deaths}/${lp.assists}</div>
+        </div>
+        <select data-match="${mi}" data-player="${pi}" data-side-select style="font-size:11px;width:100%;text-align:center">
+          <option value="ct"${autoSide==="ct"?" selected":""}>Team 2</option>
+          <option value="t"${autoSide==="t"?" selected":""}>Team 3</option>
+          <option value="">skip</option>
+        </select>
+        <select data-match="${mi}" data-player="${pi}" data-roster-select style="font-size:12px;width:100%">
+          <option value="">— skip —</option>
+          ${state.players.map(p=>`<option value="${esc(p.id)}"${p.id===lp.suggestedId?" selected":""}>${esc(p.name)}</option>`).join('')}
+        </select>
+      </div>`;
+    }).join('');
+
+    return `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer" data-toggle-match="${mi}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:8px;height:8px;border-radius:50%;background:${m.winner==='ct'?'#4299E1':'#e53e3e'}"></div>
+          <span style="font-weight:700;color:var(--text);font-size:14px">${esc(m.map)}</span>
+          <span style="font-size:11px;font-weight:700;color:${m.winner==='ct'?'#4299E1':'#e53e3e'}">${m.winner.toUpperCase()} WIN</span>
+        </div>
+        <span style="color:var(--muted);font-size:11px;font-family:var(--mono)">${esc(date)} ▾</span>
+      </div>
+      <div class="bulk-match-body" id="bulk-body-${mi}" style="padding:0 14px 12px;display:none">
+        <div style="display:grid;grid-template-columns:1fr 80px 1fr;gap:8px;margin-bottom:6px;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted)">
+          <div>LEETIFY PLAYER</div><div style="text-align:center">TEAM</div><div>ROSTER PLAYER</div>
+        </div>
+        ${rows}
+      </div>
+    </div>`;
+  }).join('');
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:min(580px,95vw)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f84982" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <h3 style="color:var(--text);font-size:16px">Review & Map Players — ${parsedMatches.length} match${parsedMatches.length>1?"es":""}</h3>
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Click each match to expand and adjust player mappings. Players not in your roster can be skipped.</p>
+      <div style="max-height:460px;overflow-y:auto;margin-bottom:14px">${matchSections}</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" id="bulk-map-cancel">Cancel</button>
+        <button class="btn btn-primary" style="flex:2;background:#f84982;border:none" id="bulk-map-confirm">IMPORT ALL MATCHES</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Toggle accordion
+  overlay.addEventListener("click", e => {
+    if (e.target===overlay) { overlay.remove(); return; }
+    const toggleIdx = e.target.closest("[data-toggle-match]")?.dataset.toggleMatch;
+    if (toggleIdx !== undefined) {
+      const body = document.getElementById(`bulk-body-${toggleIdx}`);
+      if (body) body.style.display = body.style.display==="none" ? "block" : "none";
+    }
+  });
+  // Expand first match by default
+  const first = document.getElementById("bulk-body-0");
+  if (first) first.style.display = "block";
+
+  document.getElementById("bulk-map-cancel").addEventListener("click", () => overlay.remove());
+
+  document.getElementById("bulk-map-confirm").addEventListener("click", () => {
+    let imported = 0, skipped = 0;
+
+    // Collect both selects (side + roster) keyed by match+player
+    const matchMaps = {};   // matchMaps[mi][pi] = { pid, side }
+    overlay.querySelectorAll("select[data-roster-select]").forEach(sel => {
+      const mi = parseInt(sel.dataset.match);
+      const pi = parseInt(sel.dataset.player);
+      const pid = sel.value;
+      if (!matchMaps[mi]) matchMaps[mi] = {};
+      matchMaps[mi][pi] = { pid: pid || "", side: "ct" };
+    });
+    overlay.querySelectorAll("select[data-side-select]").forEach(sel => {
+      const mi = parseInt(sel.dataset.match);
+      const pi = parseInt(sel.dataset.player);
+      if (matchMaps[mi]?.[pi]) matchMaps[mi][pi].side = sel.value;
+    });
+
+    parsedMatches.forEach((m, mi) => {
+      const mapping = matchMaps[mi] || {};
+      const entries = Object.values(mapping).filter(e=>e.pid && e.side);
+      if (!entries.length) { skipped++; return; }
+
+      // Skip if this gameId already imported
+      if (m.gameId && state.matches.some(x=>x.leetifyGameId===m.gameId)) { skipped++; return; }
+
+      // Build teams directly from the explicit side dropdowns
+      const ctIds = entries.filter(e=>e.side==="ct").map(e=>e.pid);
+      const tIds  = entries.filter(e=>e.side==="t").map(e=>e.pid);
+
+      const matchId = genId();
+      const scores  = { ct: {}, t: {} };
+
+      m.players.forEach((lp, pi) => {
+        const entry = mapping[pi];
+        if (!entry?.pid || !entry?.side || entry.side === "") return;
+        scores[entry.side][entry.pid] = { kills: lp.kills, deaths: lp.deaths, assists: lp.assists, damage: lp.damage||0, leetifyRating: lp.leetifyRating??null };
+      });
+
+      // Run ELO adjustments
+      const ctPlayers = ctIds.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+      const tPlayers  = tIds.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+
+      const processTeam = (team, opp, side) => {
+        const oppAvgElo = opp.reduce((a,p)=>a+(p.elo??1000),0)/Math.max(opp.length,1);
+        team.forEach(p => {
+          const won      = m.winner===side;
+          const s        = scores[side][p.id] || {kills:0,deaths:0,assists:0};
+          const kd       = s.deaths>0 ? s.kills/s.deaths : s.kills;
+          const curElo   = p.elo ?? 1000;
+          const eloDelta = calcEloPoints(curElo, oppAvgElo, won, kd);
+          const newElo   = Math.max(0, curElo + eloDelta);
+          const idx = state.players.findIndex(x=>x.id===p.id);
+          if (idx>-1) {
+            state.players[idx].elo = newElo;
+            // rating stays untouched
+            state.players[idx].matchHistory = [
+              ...(state.players[idx].matchHistory||[]),
+              { matchId, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, eloDelta }
+            ];
+          }
+        });
+      };
+
+      processTeam(ctPlayers, tPlayers, "ct");
+      processTeam(tPlayers, ctPlayers, "t");
+
+      state.matches.unshift({
+        id: matchId,
+        leetifyGameId: m.gameId,
+        map: m.map,
+        winner: m.winner,
+        playedAt: m.playedAt,
+        teams: { ct: ctIds, t: tIds },
+        scores,
+        roundScore: m.roundScore || null,
+      });
+      imported++;
+    });
+
+    saveData();
+    overlay.remove();
+    render();
+    flash(`Imported ${imported} match${imported!==1?"es":""}${skipped?` · ${skipped} skipped`:""}`);
+  });
+}
+
+// ─── Leaderboard ──────────────────────────────────────────────────────────
+function playerLeaderboardStats(p) {
+  const hist = p.matchHistory || [];
+  const matches = hist.length;
+  const wins    = hist.filter(m=>m.won).length;
+  const kills   = hist.reduce((s,m)=>s+(m.kills||0),0);
+  const deaths  = hist.reduce((s,m)=>s+(m.deaths||0),0);
+  const assists = hist.reduce((s,m)=>s+(m.assists||0),0);
+  const damage  = hist.reduce((s,m)=>s+(m.damage||0), 0);
+  const kd      = deaths > 0 ? kills/deaths : kills;
+  const wr      = matches > 0 ? wins/matches : 0;
+  const lrValues = hist.map(m=>m.leetifyRating).filter(v=>v!==null&&v!==undefined);
+  const avgLR   = lrValues.length > 0 ? lrValues.reduce((a,b)=>a+b,0)/lrValues.length : null;
+  const rounds  = hist.reduce((s,m)=>{
+    const mr = state.matches.find(x=>x.id===m.matchId);
+    return s + (mr?.roundScore ? (mr.roundScore.ct + mr.roundScore.t) : 0);
+  }, 0);
+  const adr     = rounds > 0 ? damage/rounds : 0;
+  const kpr     = rounds > 0 ? kills/rounds : 0;
+  return { matches, wins, kills, deaths, assists, kd, wr, kpr, adr, elo: p.elo??1000, rounds, avgLR };
+}
+
+function renderLeaderboard() {
+  const categories = [
+    { id:"elo",  label:"ELO",      desc:"Performance-based ELO rating",          fmt: s=>`${s.elo}`,                   val: s=>s.elo,      min:1 },
+    { id:"kd",   label:"K/D",      desc:"Kill/death ratio (min 3 matches)",      fmt: s=>s.kd.toFixed(2),              val: s=>s.kd,       min:3 },
+    { id:"adr",  label:"ADR",      desc:"Average damage per round (min 3 matches)",fmt: s=>s.adr.toFixed(1),           val: s=>s.adr,      min:3 },
+    { id:"wr",   label:"WIN RATE", desc:"Win percentage (min 3 matches)",         fmt: s=>`${(s.wr*100).toFixed(1)}%`, val: s=>s.wr,       min:3 },
+    { id:"kpr",  label:"K/ROUND",  desc:"Kills per round (min 3 matches)",        fmt: s=>s.kpr.toFixed(2),            val: s=>s.kpr,      min:3 },
+    { id:"lr",   label:"LEETIFY",  desc:"Average Leetify Rating (min 3 matches)",  fmt: s=>s.avgLR!=null?`${(s.avgLR*100)>=0?"+":""}${(s.avgLR*100).toFixed(2)}`:"—", val: s=>(s.avgLR??-99)*100, min:3 },
+  ];
+
+  const activeCat = state.lbCat || "elo";
+  const cat = categories.find(c=>c.id===activeCat) || categories[0];
+
+  const eligible = state.players
+    .map(p => ({ p, s: playerLeaderboardStats(p) }))
+    .filter(({s}) => s.matches >= cat.min)
+    .sort((a,b) => cat.val(b.s) - cat.val(a.s));
+
+  const rows = eligible.map(({p, s}, i) => {
+    const isTop = i === 0;
+    const medal = i===0?"🥇":i===1?"🥈":i===2?"🥉":"";
+    const barMax = eligible.length > 0 ? cat.val(eligible[0].s) : 1;
+    const barPct = barMax > 0 ? Math.min(100, (cat.val(s)/barMax)*100) : 0;
+    const rc = rankColor(p.rating);
+    const eloNet = s.elo - 1000;
+    const eloColor = eloNet>=0?"#68D391":"#fc8181";
+    return `
+    <div style="display:grid;grid-template-columns:28px 36px 1fr auto auto;align-items:center;gap:12px;
+      padding:12px 16px;background:${isTop?'var(--bg3)':'var(--bg2)'};
+      border:1px solid ${isTop?'var(--border2)':'var(--border)'};
+      border-radius:12px;margin-bottom:8px;cursor:pointer"
+      data-player-profile="${esc(p.id)}">
+      <div style="font-size:${medal?'18':'13'}px;text-align:center;color:var(--muted);font-weight:700">${medal||i+1}</div>
+      <div style="width:36px;height:40px;flex-shrink:0">${rankBadgeSVG(p.rating,rc)}</div>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(p.name)}</div>
+        <div style="margin-top:4px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;max-width:200px">
+          <div style="width:${barPct.toFixed(1)}%;height:100%;background:${rc};border-radius:2px;transition:width .3s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">
+          W/L ${s.wins}/${s.matches-s.wins} · K/D ${s.kd.toFixed(2)} · ELO <span style="color:${eloColor}">${s.elo}</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:22px;font-weight:800;color:${rc};font-family:var(--mono)">${cat.fmt(s)}</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px">${cat.label}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);text-align:right;min-width:48px">${s.matches} match${s.matches!==1?'es':''}</div>
+    </div>`;
+  }).join('') || `<div style="color:var(--muted);text-align:center;padding:40px 0;font-size:14px">No players with enough matches yet</div>`;
+
+  const tabs = categories.map(c=>`
+    <button class="lb-tab${c.id===activeCat?' lb-tab-active':''}" data-lb-cat="${c.id}"
+      style="padding:8px 16px;background:${c.id===activeCat?'var(--bg3)':'transparent'};
+      border:1px solid ${c.id===activeCat?'var(--border2)':'transparent'};
+      border-radius:8px;color:${c.id===activeCat?'var(--text)':'var(--muted)'};
+      font-family:var(--font);font-weight:700;font-size:12px;letter-spacing:1.5px;cursor:pointer;transition:all .15s">
+      ${c.label}
+    </button>`).join('');
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--text)">LEADERBOARD</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">${cat.desc}</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${tabs}</div>
+  </div>
+  <div id="lb-list">${rows}</div>`;
+}
+
+function bindLeaderboard() {
+  document.querySelectorAll("[data-lb-cat]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.lbCat = btn.dataset.lbCat;
+      render();
+    });
+  });
+  document.getElementById("lb-list")?.addEventListener("click", e => {
+    const pid = e.target.closest("[data-player-profile]")?.dataset.playerProfile;
+    if (pid) openPlayerProfile(pid);
+  });
+}
+
+// ─── Nav wiring ────────────────────────────────────────────────────────────
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => setView(btn.dataset.view));
+});
+
+// ─── Boot ─────────────────────────────────────────────────────────────────
+loadData();
+render();
+</script>
+</body>
+</html>
