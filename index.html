@@ -425,16 +425,14 @@ const DEFAULT_PLAYERS = [
   {id:genId(),name:"tiny",rating:8,role:"Flex",matchHistory:[]},
   {id:genId(),name:"twigs",rating:9,role:"Flex",matchHistory:[]},
   {id:genId(),name:"yrb",rating:13,role:"Flex",matchHistory:[],aliases:["bbbbb","loom_weaver","loomweaver"]},
-  {id:genId(),name:"ziGGeh 💩",rating:15,role:"Flex",matchHistory:[],aliases:["mofries"]},
+  {id:genId(),name:"ziGGeh",rating:15,role:"Flex",matchHistory:[],aliases:["mofries"]},
   {id:genId(),name:"adhd",rating:9,role:"Flex",matchHistory:[],aliases:["paul enhance","paulenhance"]},
   {id:genId(),name:"Bill Nogel",rating:9,role:"Flex",matchHistory:[],aliases:["bill nogel","billnogel","ophianoi"]},
 ];
 
 // ─── Persistence ───────────────────────────────────────────────────────────
-// ─── JSONBin config ───────────────────────────────────────────────────────
-const JSONBIN_ID  = "69fb285636566621a8301fa1";
-const JSONBIN_KEY = "$2a$10$GalhOKUMToi9MoA7hh2HJ.2m/h1oDgMoBR8gmhvyxbYia1SrEVGTW";
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`;
+// ─── API config (proxied via Cloudflare Worker — key never exposed) ─────────
+const JSONBIN_URL = "https://cs2-pickup-api.penguinfrags.workers.dev";
 let   saveTimeout = null;
 
 async function loadData() {
@@ -473,8 +471,8 @@ async function loadData() {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
-    const res = await fetch(JSONBIN_URL + "/latest", {
-      headers: { "X-Master-Key": JSONBIN_KEY },
+    const res = await fetch(JSONBIN_URL, {
+      headers: {},
       signal: controller.signal
     });
     clearTimeout(timeout);
@@ -513,9 +511,7 @@ function saveData() {
       await fetch(JSONBIN_URL, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          "X-Master-Key": JSONBIN_KEY,
-          "X-Bin-Versioning": "false"
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ players: state.players, matches: state.matches })
       });
