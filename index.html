@@ -1655,7 +1655,7 @@ function renderHistory() {
       <small>Play a match or import past Leetify matches above</small>
     </div>`;
 
-  const cards = state.matches.map(m => {
+  const cards = [...state.matches].sort((a,b)=>(b.playedAt||0)-(a.playedAt||0)).map(m => {
     const ctPs = m.teams.ct.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
     const tPs  = m.teams.t.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
     const date = new Date(m.playedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
