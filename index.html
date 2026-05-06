@@ -1733,7 +1733,13 @@ function openPlayerProfile(pid) {
   const netColor   = netElo>0?"#68D391":netElo<0?"#fc8181":"var(--muted)";
   const color      = rankColor(p.rating);
 
-  // Recent matches (up to 10, most recent first)
+  const lrVals   = hist.map(m=>m.leetifyRating).filter(v=>v!=null);
+  const avgLRRaw = lrVals.length > 0 ? lrVals.reduce((a,b)=>a+b,0)/lrVals.length : null;
+  const avgLR    = avgLRRaw !== null ? avgLRRaw * 100 : null;
+  const lrColor  = avgLR !== null ? (avgLR > 1 ? "#68D391" : avgLR < -5 ? "#fc8181" : "var(--muted)") : "var(--text)";
+  const hltvVals  = hist.map(m=>m.hltvRating).filter(v=>v!=null);
+  const avgHLTV   = hltvVals.length > 0 ? hltvVals.reduce((a,b)=>a+b,0)/hltvVals.length : null;
+  const hltvColor = avgHLTV !== null ? (avgHLTV >= 1.1 ? "#68D391" : avgHLTV < 0.9 ? "#fc8181" : "var(--muted)") : "var(--text)";
   const recentRows = hist.slice().reverse().slice(0,10).map(m => {
     const matchRecord = state.matches.find(x=>x.id===m.matchId);
     const map  = matchRecord ? matchRecord.map : "Unknown";
@@ -1772,16 +1778,26 @@ function openPlayerProfile(pid) {
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
         ${[
-          ["W/L", `${wins}/${losses}`],
-          ["AVG K/D", avgKD],
-          ["AVG K/D/A", `${avgKills}/${avgDeaths}/${avgAssists}`],
-          ["MATCHES", hist.length],
-        ].map(([lbl,val])=>`
+          ["W/L", `${wins}/${losses}`, "var(--text)"],
+          ["AVG K/D", avgKD, "var(--text)"],
+          ["MATCHES", hist.length, "var(--text)"],
+        ].map(([lbl,val,c])=>`
           <div style="background:var(--bg3);border-radius:9px;padding:10px;text-align:center">
             <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">${lbl}</div>
-            <div style="font-size:15px;font-weight:700;color:var(--text);font-family:var(--mono)">${val}</div>
+            <div style="font-size:15px;font-weight:700;color:${c};font-family:var(--mono)">${val}</div>
+          </div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px">
+        ${[
+          ["LEETIFY", avgLR !== null ? `${avgLR>=0?"+":""}${avgLR.toFixed(2)}` : "—", lrColor],
+          ["HLTV",    avgHLTV !== null ? avgHLTV.toFixed(2) : "—", hltvColor],
+          ["AVG K/D/A", `${avgKills}/${avgDeaths}/${avgAssists}`, "var(--text)"],
+        ].map(([lbl,val,c])=>`
+          <div style="background:var(--bg3);border-radius:9px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">${lbl}</div>
+            <div style="font-size:15px;font-weight:700;color:${c};font-family:var(--mono)">${val}</div>
           </div>`).join('')}
       </div>
 
@@ -2135,6 +2151,7 @@ function openBulkMapping(matchDataList) {
       <div style="max-height:460px;overflow-y:auto;margin-bottom:14px">${matchSections}</div>
       <div style="display:flex;gap:10px">
         <button class="btn btn-ghost" id="bulk-map-cancel">Cancel</button>
+        <button class="btn btn-ghost" id="bulk-map-reimport" style="border-color:#ECC94B;color:#ECC94B">↺ FORCE REIMPORT</button>
         <button class="btn btn-primary" style="flex:2;background:#f84982;border:none" id="bulk-map-confirm">IMPORT ALL MATCHES</button>
       </div>
     </div>`;
@@ -2154,6 +2171,47 @@ function openBulkMapping(matchDataList) {
   if (first) first.style.display = "block";
 
   document.getElementById("bulk-map-cancel").addEventListener("click", () => overlay.remove());
+
+  // Force reimport — updates stats on already-imported matches (for adding new stat fields like HLTV)
+  document.getElementById("bulk-map-reimport").addEventListener("click", () => {
+    let updated = 0;
+    overlay.querySelectorAll("select[data-roster-select]").forEach(sel => {});
+    const matchMaps2 = {};
+    overlay.querySelectorAll("select[data-roster-select]").forEach(sel => {
+      const mi = parseInt(sel.dataset.match); const pi = parseInt(sel.dataset.player); const pid = sel.value;
+      if (!matchMaps2[mi]) matchMaps2[mi] = {};
+      matchMaps2[mi][pi] = { pid: pid||"", side:"ct" };
+    });
+    overlay.querySelectorAll("select[data-side-select]").forEach(sel => {
+      const mi = parseInt(sel.dataset.match); const pi = parseInt(sel.dataset.player);
+      if (matchMaps2[mi]?.[pi]) matchMaps2[mi][pi].side = sel.value;
+    });
+
+    parsedMatches.forEach((m, mi) => {
+      const mapping = matchMaps2[mi] || {};
+      const existing = state.matches.find(x=>x.leetifyGameId===m.gameId);
+      if (!existing) return; // only update existing matches
+
+      m.players.forEach((lp, pi) => {
+        const entry = mapping[pi];
+        if (!entry?.pid || !entry?.side) return;
+        const pid = entry.pid;
+        const idx = state.players.findIndex(p=>p.id===pid);
+        if (idx < 0) return;
+        // Update the matchHistory entry for this match with new stat fields
+        const histIdx = state.players[idx].matchHistory?.findIndex(h=>h.matchId===existing.id);
+        if (histIdx >= 0) {
+          if (lp.hltvRating != null)    state.players[idx].matchHistory[histIdx].hltvRating    = lp.hltvRating;
+          if (lp.leetifyRating != null) state.players[idx].matchHistory[histIdx].leetifyRating = lp.leetifyRating;
+          if (lp.damage != null)        state.players[idx].matchHistory[histIdx].damage        = lp.damage;
+        }
+      });
+      updated++;
+    });
+
+    saveData(); overlay.remove(); render();
+    flash(`Updated stats for ${updated} existing match${updated!==1?"es":""}`);
+  });
 
   document.getElementById("bulk-map-confirm").addEventListener("click", () => {
     let imported = 0, skipped = 0;
