@@ -275,6 +275,7 @@
     <button class="nav-btn" data-view="match">MATCH</button>
     <button class="nav-btn" data-view="history">HISTORY</button>
     <button class="nav-btn" data-view="leaderboard">LEADERBOARD</button>
+    <button class="nav-btn" data-view="rankings">RANK SUGGESTIONS</button>
   </div>
 
   <div id="content"></div>
@@ -548,6 +549,7 @@ function render() {
   if (state.view === "match")   { content.innerHTML = renderMatch();  bindMatch(); }
   if (state.view === "history") { content.innerHTML = renderHistory(); bindHistory(); }
   if (state.view === "leaderboard") { content.innerHTML = renderLeaderboard(); bindLeaderboard(); }
+  if (state.view === "rankings") { content.innerHTML = renderRankings(); bindRankings(); }
 }
 
 function updateHeaderStats() {
@@ -667,7 +669,7 @@ function playerCardHTML(p, selectable) {
 // ─── Rank adjustment suggestions ─────────────────────────────────────────
 function getRankSuggestions() {
   // ELO drift thresholds — how far ELO needs to move before suggesting a rank change
-  const THRESHOLD = 60; // ELO points from 1000 baseline
+  const THRESHOLD = 35; // ELO points from 1000 baseline
   const ELO_TO_RANK_SCALE = 17 / 400; // maps ±400 ELO to ±17 rank levels
 
   return state.players
@@ -699,41 +701,11 @@ function renderRoster() {
   const filtered = state.players.filter(p => p.name.toLowerCase().includes(q)).sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   const rankLbl = rankLabel(state.addForm.rating);
 
-  const suggestions = getRankSuggestions();
-
   return `
   <div id="search-row">
     <input type="text" id="search-input" placeholder="Search players…" value="${esc(state.searchQ)}" />
     <span id="search-count">${filtered.length} / ${state.players.length}</span>
   </div>
-
-  ${suggestions.length > 0 && !READONLY ? `
-  <div class="card" style="margin-bottom:20px;border-color:#ECC94B44;background:var(--bg2)">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span style="font-size:16px">📊</span>
-      <div class="sec-label" style="margin:0">RANK ADJUSTMENT SUGGESTIONS</div>
-      <div style="font-size:11px;color:var(--muted);margin-left:auto">Based on ELO performance vs current rating</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${suggestions.map(s => `
-      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
-        <div style="flex:1">
-          <span style="font-size:14px;font-weight:700;color:var(--text)">${esc(s.name)}</span>
-          <span style="font-size:12px;color:var(--muted);margin-left:8px">${s.drift>0?"overperforming":"underperforming"} by ${Math.abs(Math.round(s.drift))} ELO</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px">
-          <span style="color:${rankColor(s.current)};font-weight:700">${s.current.toFixed(1)}</span>
-          <span style="color:var(--muted)">${s.up?"→":"→"}</span>
-          <span style="color:${rankColor(s.suggested)};font-weight:800">${s.suggested.toFixed(1)}</span>
-          <span style="font-size:16px">${s.up?"⬆":"⬇"}</span>
-        </div>
-        <button class="btn btn-ghost" data-apply-suggestion="${esc(s.id)}" data-suggested-rating="${s.suggested}"
-          style="font-size:12px;padding:6px 12px;border-color:${s.up?'#68D391':'#fc8181'};color:${s.up?'#68D391':'#fc8181'}">
-          APPLY
-        </button>
-      </div>`).join('')}
-    </div>
-  </div>` : ''}
 
   ${!READONLY ? `<div class="card" style="margin-bottom:20px">
     <div class="sec-label">ADD PLAYER</div>
@@ -2178,15 +2150,14 @@ function playerLeaderboardStats(p) {
 
 function renderLeaderboard() {
   const categories = [
+    { id:"lr",   label:"LEETIFY",  desc:"Average Leetify Rating (min 3 matches)",  fmt: s=>s.avgLR!=null?`${(s.avgLR*100)>=0?"+":""}${(s.avgLR*100).toFixed(2)}`:"—", val: s=>(s.avgLR??-99)*100, min:3 },
+    { id:"adr",  label:"ADR",      desc:"Average damage per round (min 3 matches)",fmt: s=>s.adr.toFixed(1),           val: s=>s.adr,      min:3 },
     { id:"elo",  label:"ELO",      desc:"Performance-based ELO rating",          fmt: s=>`${s.elo}`,                   val: s=>s.elo,      min:1 },
     { id:"kd",   label:"K/D",      desc:"Kill/death ratio (min 3 matches)",      fmt: s=>s.kd.toFixed(2),              val: s=>s.kd,       min:3 },
-    { id:"adr",  label:"ADR",      desc:"Average damage per round (min 3 matches)",fmt: s=>s.adr.toFixed(1),           val: s=>s.adr,      min:3 },
     { id:"wr",   label:"WIN RATE", desc:"Win percentage (min 3 matches)",         fmt: s=>`${(s.wr*100).toFixed(1)}%`, val: s=>s.wr,       min:3 },
-    { id:"kpr",  label:"K/ROUND",  desc:"Kills per round (min 3 matches)",        fmt: s=>s.kpr.toFixed(2),            val: s=>s.kpr,      min:3 },
-    { id:"lr",   label:"LEETIFY",  desc:"Average Leetify Rating (min 3 matches)",  fmt: s=>s.avgLR!=null?`${(s.avgLR*100)>=0?"+":""}${(s.avgLR*100).toFixed(2)}`:"—", val: s=>(s.avgLR??-99)*100, min:3 },
   ];
 
-  const activeCat = state.lbCat || "elo";
+  const activeCat = state.lbCat || "lr";
   const cat = categories.find(c=>c.id===activeCat) || categories[0];
 
   const eligible = state.players
@@ -2257,6 +2228,63 @@ function bindLeaderboard() {
   document.getElementById("lb-list")?.addEventListener("click", e => {
     const pid = e.target.closest("[data-player-profile]")?.dataset.playerProfile;
     if (pid) openPlayerProfile(pid);
+  });
+}
+
+// ─── Rankings tab ────────────────────────────────────────────────────────
+function renderRankings() {
+  const suggestions = getRankSuggestions();
+
+  const suggRows = suggestions.length === 0 ? `
+    <div class="empty-state" style="padding-top:40px">
+      <span class="empty-icon">✅</span>
+      <p>No adjustments needed yet</p>
+      <small>Keep playing — suggestions appear when a player's ELO drifts significantly from their skill rating</small>
+    </div>` : suggestions.map(s => `
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:8px">
+      <div style="flex:1">
+        <div style="font-size:16px;font-weight:700;color:var(--text)">${esc(s.name)}</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:3px">${s.drift>0?"Overperforming":"Underperforming"} by <b style="color:${s.drift>0?'#68D391':'#fc8181'}">${Math.abs(Math.round(s.drift))} ELO</b></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;font-family:var(--mono)">
+        <div style="text-align:center">
+          <div style="font-size:18px;font-weight:700;color:${rankColor(s.current)}">${s.current.toFixed(1)}</div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px">CURRENT</div>
+        </div>
+        <div style="font-size:22px;color:${s.up?'#68D391':'#fc8181'}">${s.up?"⬆":"⬇"}</div>
+        <div style="text-align:center">
+          <div style="font-size:18px;font-weight:800;color:${rankColor(s.suggested)}">${s.suggested.toFixed(1)}</div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px">SUGGESTED</div>
+        </div>
+      </div>
+      ${READONLY ? `<div style="font-size:11px;color:var(--muted)">Admin only</div>` : `<button class="btn btn-ghost" data-apply-suggestion="${esc(s.id)}" data-suggested-rating="${s.suggested}"
+        style="font-size:12px;padding:8px 14px;border-color:${s.up?'#68D391':'#fc8181'};color:${s.up?'#68D391':'#fc8181'}">
+        APPLY
+      </button>`}
+    </div>`).join('');
+
+  return `
+  <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px">RANK ADJUSTMENT SUGGESTIONS</div>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6">
+    Team balancing uses manually set skill ratings. ELO tracks performance over time and is used to suggest adjustments — applied with group consensus by admins.
+  </div>
+  ${suggRows}`;
+}
+
+function bindRankings() {
+  document.querySelectorAll("[data-apply-suggestion]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const pid = btn.dataset.applySuggestion;
+      const newRating = parseFloat(btn.dataset.suggestedRating);
+      const idx = state.players.findIndex(p=>p.id===pid);
+      if (idx > -1) {
+        const old = state.players[idx].rating;
+        state.players[idx].rating = newRating;
+        state.players[idx].elo = 1000;
+        saveData(); render();
+        flash(`${state.players[idx].name} rating ${old.toFixed(1)} → ${newRating.toFixed(1)} · ELO reset to 1000`);
+      }
+    });
   });
 }
 
