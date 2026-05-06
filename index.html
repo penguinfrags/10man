@@ -664,17 +664,76 @@ function playerCardHTML(p, selectable) {
   </div>`;
 }
 
+// ─── Rank adjustment suggestions ─────────────────────────────────────────
+function getRankSuggestions() {
+  // ELO drift thresholds — how far ELO needs to move before suggesting a rank change
+  const THRESHOLD = 60; // ELO points from 1000 baseline
+  const ELO_TO_RANK_SCALE = 17 / 400; // maps ±400 ELO to ±17 rank levels
+
+  return state.players
+    .filter(p => (p.matchHistory||[]).length >= 3 && p.elo != null)
+    .map(p => {
+      const drift = (p.elo - 1000); // positive = overperforming, negative = underperforming
+      if (Math.abs(drift) < THRESHOLD) return null;
+      // Suggested rank change proportional to ELO drift
+      const change = drift * ELO_TO_RANK_SCALE;
+      const suggested = Math.max(1, Math.min(18, p.rating + change));
+      const rounded = Math.round(suggested * 2) / 2; // snap to 0.5 increments
+      if (Math.abs(rounded - p.rating) < 0.5) return null; // not enough change to bother
+      return {
+        id: p.id,
+        name: p.name,
+        current: p.rating,
+        suggested: rounded,
+        drift,
+        up: rounded > p.rating,
+      };
+    })
+    .filter(Boolean)
+    .sort((a,b) => Math.abs(b.drift) - Math.abs(a.drift));
+}
+
 // ─── ROSTER ───────────────────────────────────────────────────────────────
 function renderRoster() {
   const q = state.searchQ.toLowerCase();
   const filtered = state.players.filter(p => p.name.toLowerCase().includes(q)).sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   const rankLbl = rankLabel(state.addForm.rating);
 
+  const suggestions = getRankSuggestions();
+
   return `
   <div id="search-row">
     <input type="text" id="search-input" placeholder="Search players…" value="${esc(state.searchQ)}" />
     <span id="search-count">${filtered.length} / ${state.players.length}</span>
   </div>
+
+  ${suggestions.length > 0 && !READONLY ? `
+  <div class="card" style="margin-bottom:20px;border-color:#ECC94B44;background:var(--bg2)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:16px">📊</span>
+      <div class="sec-label" style="margin:0">RANK ADJUSTMENT SUGGESTIONS</div>
+      <div style="font-size:11px;color:var(--muted);margin-left:auto">Based on ELO performance vs current rating</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${suggestions.map(s => `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+        <div style="flex:1">
+          <span style="font-size:14px;font-weight:700;color:var(--text)">${esc(s.name)}</span>
+          <span style="font-size:12px;color:var(--muted);margin-left:8px">${s.drift>0?"overperforming":"underperforming"} by ${Math.abs(Math.round(s.drift))} ELO</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px">
+          <span style="color:${rankColor(s.current)};font-weight:700">${s.current.toFixed(1)}</span>
+          <span style="color:var(--muted)">${s.up?"→":"→"}</span>
+          <span style="color:${rankColor(s.suggested)};font-weight:800">${s.suggested.toFixed(1)}</span>
+          <span style="font-size:16px">${s.up?"⬆":"⬇"}</span>
+        </div>
+        <button class="btn btn-ghost" data-apply-suggestion="${esc(s.id)}" data-suggested-rating="${s.suggested}"
+          style="font-size:12px;padding:6px 12px;border-color:${s.up?'#68D391':'#fc8181'};color:${s.up?'#68D391':'#fc8181'}">
+          APPLY
+        </button>
+      </div>`).join('')}
+    </div>
+  </div>` : ''}
 
   ${!READONLY ? `<div class="card" style="margin-bottom:20px">
     <div class="sec-label">ADD PLAYER</div>
@@ -717,6 +776,24 @@ function bindRoster() {
     if (removeId) { removePlayer(removeId); return; }
     const toggleId = e.target.closest("[data-toggle-lobby]")?.dataset.toggleLobby;
     if (toggleId) toggleLobby(toggleId);
+  });
+
+  // Apply rank suggestion
+  document.querySelectorAll("[data-apply-suggestion]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      const pid = btn.dataset.applySuggestion;
+      const newRating = parseFloat(btn.dataset.suggestedRating);
+      const idx = state.players.findIndex(p=>p.id===pid);
+      if (idx > -1) {
+        const old = state.players[idx].rating;
+        state.players[idx].rating = newRating;
+        // Reset ELO back to 1000 baseline after applying the rank correction
+        state.players[idx].elo = 1000;
+        saveData(); render();
+        flash(`${state.players[idx]?.name || "Player"} rating updated ${old.toFixed(1)} → ${newRating.toFixed(1)} · ELO reset to 1000`);
+      }
+    });
   });
 }
 
