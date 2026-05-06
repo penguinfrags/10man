@@ -539,31 +539,19 @@ async function loadData() {
   showSpinner();
 
   // 2. Fetch from JSONBin in the background
-  const attemptFetch = async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
-    try {
-      const res = await fetch(JSONBIN_URL, {
-        headers: {},
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch(e) {
-      clearTimeout(timeout);
-      throw e;
-    }
-  };
+  const fetchWithTimeout = (ms) => Promise.race([
+    fetch(JSONBIN_URL, { headers: {} }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+  ]);
 
   try {
     let json;
     try {
-      json = await attemptFetch();
+      json = await fetchWithTimeout(20000);
     } catch(e) {
       // one retry after 2s
       await new Promise(r => setTimeout(r, 2000));
-      json = await attemptFetch();
+      json = await fetchWithTimeout(20000);
     }
     const data = json.record || json;
     if (data.players && data.players.length) {
@@ -577,9 +565,9 @@ async function loadData() {
     hideSpinner();
     setTimeout(hideSync, 2000);
   } catch (err) {
-    if (err.name === "AbortError") {
+    if (err.message === "timeout") {
       hideSpinner();
-      showSync("⚠ OFFLINE", "#ECC94B");
+      showSync("⚠ SLOW", "#ECC94B");
       setTimeout(hideSync, 3000);
     } else {
       console.error("JSONBin load error:", err);
@@ -757,33 +745,29 @@ function playerCardHTML(p, selectable) {
 
 // ─── Rank adjustment suggestions ─────────────────────────────────────────
 function getRankSuggestions() {
-  const MIN_MATCHES   = 3;
-  const MIN_CONFIDENCE = 20; // need at least some confidence before suggesting
-  const MIN_DIFF      = 0.5; // minimum rank change to bother suggesting
+  const THRESHOLD = 35;
+  const ELO_TO_RANK_SCALE = 17 / 400;
 
   return state.players
-    .filter(p => (p.matchHistory||[]).length >= MIN_MATCHES)
+    .filter(p => (p.matchHistory||[]).length >= 3 && p.elo != null)
     .map(p => {
-      const ts         = tsInit(p);
-      const confidence = tsConfidence(ts.sigma);
-      if (confidence < MIN_CONFIDENCE) return null;
-      const hiddenRank = tsToRank(ts.mu);
-      const suggested  = Math.round(hiddenRank * 2) / 2; // snap to 0.5
-      if (Math.abs(suggested - p.rating) < MIN_DIFF) return null;
-      const eloDrift = (p.elo ?? 1000) - 1000;
+      const ts       = tsInit(p);
+      const hidden   = tsToRank(ts.mu);
+      const conf     = tsConfidence(ts.sigma);
+      const drift    = (p.elo - 1000);
+      if (Math.abs(drift) < THRESHOLD) return null;
+      const change   = drift * ELO_TO_RANK_SCALE;
+      const suggested = Math.max(1, Math.min(18, Math.round((p.rating + change) * 2) / 2));
+      if (Math.abs(suggested - p.rating) < 0.5) return null;
       return {
-        id: p.id,
-        name: p.name,
-        current: p.rating,
-        suggested,
-        hiddenRank,
-        confidence,
-        eloDrift,
-        up: suggested > p.rating,
+        id: p.id, name: p.name,
+        current: p.rating, suggested,
+        hiddenRank: hidden, confidence: conf,
+        eloDrift: drift, up: suggested > p.rating,
       };
     })
     .filter(Boolean)
-    .sort((a,b) => Math.abs(b.hiddenRank - b.current) - Math.abs(a.hiddenRank - a.current));
+    .sort((a,b) => Math.abs(b.eloDrift) - Math.abs(a.eloDrift));
 }
 
 // ─── ROSTER ───────────────────────────────────────────────────────────────
@@ -2319,7 +2303,7 @@ function renderLeaderboard() {
       <div>
         <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(p.name)}</div>
         <div style="margin-top:4px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;max-width:200px">
-          <div style="width:${barPct.toFixed(1)}%;height:100%;background:${rc};border-radius:2px;transition:width .3s"></div>
+          <div style="width:${barPct}%;height:100%;background:${rc};border-radius:2px;transition:width .3s"></div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">
           W/L ${s.wins}/${s.matches-s.wins} · K/D ${s.kd.toFixed(2)} · ELO <span style="color:${eloColor}">${s.elo}</span>
