@@ -392,6 +392,51 @@ function calcEloPoints(playerElo, oppAvgElo, won, kd) {
   return Math.round(K * (outcome - exp) + perfBonus * K * 0.4);
 }
 
+// ─── Hidden TrueSkill-style rating ────────────────────────────────────────
+// μ (mu): estimated skill, seeded from manual rating scaled to 0-1800
+// σ (sigma): uncertainty, starts at 300, shrinks toward 50 over ~20 games
+const TS_MU_SCALE   = 100;   // manual rating 1-18 → mu 100-1800
+const TS_SIGMA_INIT = 300;
+const TS_SIGMA_MIN  = 50;
+const TS_BETA       = 150;   // performance variability constant
+
+function tsInit(p) {
+  // Seed mu from manual rating, sigma from games played
+  const mu    = p.mu    ?? (p.rating * TS_MU_SCALE);
+  const games = (p.matchHistory||[]).length;
+  const sigma = p.sigma ?? Math.max(TS_SIGMA_MIN, TS_SIGMA_INIT - games * 12);
+  return { mu, sigma };
+}
+
+function tsUpdate(mu, sigma, oppMu, oppSigma, won, kd) {
+  // Simplified Bayesian update: move mu toward performance signal
+  // Performance signal: blend of win/loss and K/D relative to 1.0
+  const c2    = 2 * TS_BETA * TS_BETA + sigma * sigma + oppSigma * oppSigma;
+  const c     = Math.sqrt(c2);
+  const delta = mu - oppMu;
+  // Normal PDF/CDF approximations
+  const x     = delta / c;
+  const pdf   = Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+  const cdf   = 0.5 * (1 + Math.tanh(x * 0.7978845608)); // erf approx
+  const outcome = won ? 1 : 0;
+  const v     = won ? pdf / cdf : -pdf / (1 - cdf);
+  const w     = v * (v + delta / c);
+  const kdBonus = (kd - 1) * 15; // K/D contribution to mu shift
+  const newMu    = mu + (sigma * sigma / c) * v + kdBonus * (sigma / TS_SIGMA_INIT);
+  const newSigma = Math.max(TS_SIGMA_MIN, sigma * Math.sqrt(Math.max(0, 1 - (sigma * sigma / c2) * w)));
+  return { mu: Math.max(50, Math.min(1850, newMu)), sigma: newSigma };
+}
+
+function tsConfidence(sigma) {
+  // 0-100: how confident we are in this player's hidden rating
+  return Math.round(100 * (1 - (sigma - TS_SIGMA_MIN) / (TS_SIGMA_INIT - TS_SIGMA_MIN)));
+}
+
+function tsToRank(mu) {
+  // Convert hidden mu back to 1-18 rank scale for display
+  return Math.max(1, Math.min(18, mu / TS_MU_SCALE));
+}
+
 let state = {
   view: "roster",
   players: [],
@@ -712,31 +757,33 @@ function playerCardHTML(p, selectable) {
 
 // ─── Rank adjustment suggestions ─────────────────────────────────────────
 function getRankSuggestions() {
-  // ELO drift thresholds — how far ELO needs to move before suggesting a rank change
-  const THRESHOLD = 35; // ELO points from 1000 baseline
-  const ELO_TO_RANK_SCALE = 17 / 400; // maps ±400 ELO to ±17 rank levels
+  const MIN_MATCHES   = 3;
+  const MIN_CONFIDENCE = 20; // need at least some confidence before suggesting
+  const MIN_DIFF      = 0.5; // minimum rank change to bother suggesting
 
   return state.players
-    .filter(p => (p.matchHistory||[]).length >= 3 && p.elo != null)
+    .filter(p => (p.matchHistory||[]).length >= MIN_MATCHES)
     .map(p => {
-      const drift = (p.elo - 1000); // positive = overperforming, negative = underperforming
-      if (Math.abs(drift) < THRESHOLD) return null;
-      // Suggested rank change proportional to ELO drift
-      const change = drift * ELO_TO_RANK_SCALE;
-      const suggested = Math.max(1, Math.min(18, p.rating + change));
-      const rounded = Math.round(suggested * 2) / 2; // snap to 0.5 increments
-      if (Math.abs(rounded - p.rating) < 0.5) return null; // not enough change to bother
+      const ts         = tsInit(p);
+      const confidence = tsConfidence(ts.sigma);
+      if (confidence < MIN_CONFIDENCE) return null;
+      const hiddenRank = tsToRank(ts.mu);
+      const suggested  = Math.round(hiddenRank * 2) / 2; // snap to 0.5
+      if (Math.abs(suggested - p.rating) < MIN_DIFF) return null;
+      const eloDrift = (p.elo ?? 1000) - 1000;
       return {
         id: p.id,
         name: p.name,
         current: p.rating,
-        suggested: rounded,
-        drift,
-        up: rounded > p.rating,
+        suggested,
+        hiddenRank,
+        confidence,
+        eloDrift,
+        up: suggested > p.rating,
       };
     })
     .filter(Boolean)
-    .sort((a,b) => Math.abs(b.drift) - Math.abs(a.drift));
+    .sort((a,b) => Math.abs(b.hiddenRank - b.current) - Math.abs(a.hiddenRank - a.current));
 }
 
 // ─── ROSTER ───────────────────────────────────────────────────────────────
@@ -1587,9 +1634,17 @@ function finalizeMatch(winner) {
     const eloDelta  = calcEloPoints(curElo, oppAvgElo, won, kd);
     const newElo    = Math.max(0, curElo + eloDelta);
 
+    // TrueSkill hidden rating update
+    const ts    = tsInit(p);
+    const oppTs = { mu: opp.reduce((a,x)=>a+tsInit(x).mu,0)/opp.length,
+                    sigma: opp.reduce((a,x)=>a+tsInit(x).sigma,0)/opp.length };
+    const newTs = tsUpdate(ts.mu, ts.sigma, oppTs.mu, oppTs.sigma, won, kd);
+
     const idx = state.players.findIndex(x=>x.id===p.id);
     if(idx>-1) {
-      state.players[idx].elo = newElo;
+      state.players[idx].elo   = newElo;
+      state.players[idx].mu    = newTs.mu;
+      state.players[idx].sigma = newTs.sigma;
       // rating stays untouched
       state.players[idx].matchHistory = [
         ...(state.players[idx].matchHistory||[]),
@@ -1870,6 +1925,10 @@ function deleteMatch(matchId) {
     if (!entry) return;
     p.elo = Math.max(0, (p.elo ?? 1000) - (entry.eloDelta ?? 0));
     p.matchHistory = p.matchHistory.filter(h=>h.matchId!==matchId);
+    // Re-seed mu/sigma from scratch based on remaining history
+    delete p.mu; delete p.sigma;
+    const { mu, sigma } = tsInit(p);
+    p.mu = mu; p.sigma = sigma;
   });
   state.matches = state.matches.filter(x=>x.id!==matchId);
   saveData();
@@ -2162,9 +2221,15 @@ function openBulkMapping(matchDataList) {
           const curElo   = p.elo ?? 1000;
           const eloDelta = calcEloPoints(curElo, oppAvgElo, won, kd);
           const newElo   = Math.max(0, curElo + eloDelta);
+          const ts    = tsInit(p);
+          const oppTs = { mu: opp.reduce((a,x)=>a+tsInit(x).mu,0)/Math.max(opp.length,1),
+                          sigma: opp.reduce((a,x)=>a+tsInit(x).sigma,0)/Math.max(opp.length,1) };
+          const newTs = tsUpdate(ts.mu, ts.sigma, oppTs.mu, oppTs.sigma, won, kd);
           const idx = state.players.findIndex(x=>x.id===p.id);
           if (idx>-1) {
-            state.players[idx].elo = newElo;
+            state.players[idx].elo   = newElo;
+            state.players[idx].mu    = newTs.mu;
+            state.players[idx].sigma = newTs.sigma;
             // rating stays untouched
             state.players[idx].matchHistory = [
               ...(state.players[idx].matchHistory||[]),
@@ -2305,16 +2370,65 @@ function bindLeaderboard() {
 function renderRankings() {
   const suggestions = getRankSuggestions();
 
+  // Admin: show all players with hidden rating table
+  const allPlayersTable = !READONLY ? (() => {
+    const rows = [...state.players]
+      .sort((a,b) => tsInit(b).mu - tsInit(a).mu)
+      .map(p => {
+        const ts = tsInit(p);
+        const conf = tsConfidence(ts.sigma);
+        const hiddenRank = tsToRank(ts.mu);
+        const rc = rankColor(p.rating);
+        const hc = rankColor(hiddenRank);
+        const diff = hiddenRank - p.rating;
+        const diffColor = diff > 0.4 ? "#68D391" : diff < -0.4 ? "#fc8181" : "var(--muted)";
+        const matches = (p.matchHistory||[]).length;
+        return `
+        <div style="display:grid;grid-template-columns:1fr auto auto auto auto;align-items:center;gap:14px;
+          padding:10px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(p.name)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${matches} match${matches!==1?"es":""}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:15px;font-weight:700;color:${rc}">${p.rating.toFixed(1)}</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px">MANUAL</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:15px;font-weight:700;color:${hc}">${hiddenRank.toFixed(1)}</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px">HIDDEN</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:14px;font-weight:700;color:${diffColor}">${diff>=0?"+":""}${diff.toFixed(1)}</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px">DIFF</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${conf}%</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px">CONF</div>
+          </div>
+        </div>`;
+      }).join('');
+    return `
+    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">ALL PLAYERS — HIDDEN RATINGS</div>
+    ${rows}
+    <div style="margin:24px 0 10px;border-top:1px solid var(--border)"></div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">SUGGESTED ADJUSTMENTS</div>`;
+  })() : '';
+
   const suggRows = suggestions.length === 0 ? `
-    <div class="empty-state" style="padding-top:40px">
+    <div class="empty-state" style="padding-top:${READONLY?'40':'20'}px">
       <span class="empty-icon">✅</span>
       <p>No adjustments needed yet</p>
-      <small>Keep playing — suggestions appear when a player's ELO drifts significantly from their skill rating</small>
+      <small>Keep playing — suggestions appear when a player's hidden rating drifts from their manual rating</small>
     </div>` : suggestions.map(s => `
     <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:8px">
       <div style="flex:1">
         <div style="font-size:16px;font-weight:700;color:var(--text)">${esc(s.name)}</div>
-        <div style="font-size:13px;color:var(--muted);margin-top:3px">${s.drift>0?"Overperforming":"Underperforming"} by <b style="color:${s.drift>0?'#68D391':'#fc8181'}">${Math.abs(Math.round(s.drift))} ELO</b></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px">
+          Hidden rating: <b style="color:var(--text)">${s.hiddenRank.toFixed(1)}</b>
+          · ELO drift: <b style="color:${s.eloDrift>=0?'#68D391':'#fc8181'}">${s.eloDrift>=0?'+':''}${Math.round(s.eloDrift)}</b>
+          · Confidence: <b style="color:var(--text)">${s.confidence}%</b>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;font-family:var(--mono)">
         <div style="text-align:center">
@@ -2338,6 +2452,7 @@ function renderRankings() {
   <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6">
     Team balancing uses manually set skill ratings. ELO tracks performance over time and is used to suggest adjustments.
   </div>
+  ${allPlayersTable}
   ${suggRows}`;
 }
 
@@ -2350,9 +2465,12 @@ function bindRankings() {
       if (idx > -1) {
         const old = state.players[idx].rating;
         state.players[idx].rating = newRating;
-        state.players[idx].elo = 1000;
+        state.players[idx].elo    = 1000;
+        // Re-seed hidden rating from new manual rating
+        state.players[idx].mu    = newRating * TS_MU_SCALE;
+        state.players[idx].sigma = TS_SIGMA_INIT;
         saveData(); render();
-        flash(`${state.players[idx].name} rating ${old.toFixed(1)} → ${newRating.toFixed(1)} · ELO reset to 1000`);
+        flash(`${state.players[idx].name} rating ${old.toFixed(1)} → ${newRating.toFixed(1)} · ELO + hidden rating reset`);
       }
     });
   });
