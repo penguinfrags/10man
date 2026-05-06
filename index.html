@@ -1435,6 +1435,7 @@ function openLeetifyMapping(data) {
     const assists = s.totalAssists ?? s.total_assists ?? s.assists ?? 0;
     const damage  = s.totalDamage  ?? s.total_damage  ?? s.damage  ?? 0;
     const leetifyRating = s.leetifyRating ?? s.leetify_rating ?? null;
+    const hltvRating    = s.hltvRating    ?? s.hltv_rating    ?? null;
     // initialTeamNumber: 3 = CT, 2 = T (Valve/CS2 convention)
     const teamNum = s.initialTeamNumber ?? s.teamNumber ?? s.team_number ?? null;
     const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
@@ -1446,7 +1447,7 @@ function openLeetifyMapping(data) {
       const score = Math.max(...namesToCheck.map(n => similarity(name, n)));
       if (score > bestScore) { bestScore = score; bestId = p.id; }
     });
-    return { name, kills, deaths, assists, damage, leetifyRating, side, suggestedId: bestId };
+    return { name, kills, deaths, assists, damage, leetifyRating, hltvRating, side, suggestedId: bestId };
   });
 
   const overlay = document.createElement("div");
@@ -1496,7 +1497,7 @@ function openLeetifyMapping(data) {
       // prefer Leetify's own team assignment; fall back to checking current match teams
       const inCT = state.currentMatch.ct.some(p=>p.id===pid);
       const side = lp.side || (inCT ? "ct" : "t");
-      statsBySide[side][pid] = { kills: lp.kills, deaths: lp.deaths, assists: lp.assists, damage: lp.damage||0, leetifyRating: lp.leetifyRating??null };
+      statsBySide[side][pid] = { kills: lp.kills, deaths: lp.deaths, assists: lp.assists, damage: lp.damage||0, leetifyRating: lp.leetifyRating??null, hltvRating: lp.hltvRating??null };
     });
 
     // Ensure every player on each team has an entry — fill gaps with zeros
@@ -1632,7 +1633,7 @@ function finalizeMatch(winner) {
       // rating stays untouched
       state.players[idx].matchHistory = [
         ...(state.players[idx].matchHistory||[]),
-        { matchId:match.id, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, eloDelta }
+        { matchId:match.id, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, eloDelta }
       ];
     }
   });
@@ -2062,11 +2063,12 @@ function openBulkMapping(matchDataList) {
       const assists = s.totalAssists ?? s.total_assists ?? s.assists ?? 0;
       const damage  = s.totalDamage  ?? s.total_damage  ?? s.damage  ?? 0;
       const leetifyRating = s.leetifyRating ?? s.leetify_rating ?? null;
+      const hltvRating    = s.hltvRating    ?? s.hltv_rating    ?? null;
       // initialTeamNumber: 3 = CT, 2 = T (confirmed from Leetify API)
       const teamNum = s.initialTeamNumber ?? s.teamNumber ?? s.team_number ?? null;
       const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
       console.log("[Leetify bulk] player", name, "initialTeamNumber:", teamNum, "->", side);
-      return { name, kills, deaths, assists, damage, leetifyRating, teamNum, side, suggestedId: findBestPlayer(name) };
+      return { name, kills, deaths, assists, damage, leetifyRating, hltvRating, teamNum, side, suggestedId: findBestPlayer(name) };
     });
     // Derive round score: each team's total rounds won
     const team2p = ps2.find ? ps2.find(s=>(s.initialTeamNumber??s.teamNumber)===2) : null;
@@ -2189,7 +2191,7 @@ function openBulkMapping(matchDataList) {
       m.players.forEach((lp, pi) => {
         const entry = mapping[pi];
         if (!entry?.pid || !entry?.side || entry.side === "") return;
-        scores[entry.side][entry.pid] = { kills: lp.kills, deaths: lp.deaths, assists: lp.assists, damage: lp.damage||0, leetifyRating: lp.leetifyRating??null };
+        scores[entry.side][entry.pid] = { kills: lp.kills, deaths: lp.deaths, assists: lp.assists, damage: lp.damage||0, leetifyRating: lp.leetifyRating??null, hltvRating: lp.hltvRating??null };
       });
 
       // Run ELO adjustments
@@ -2217,7 +2219,7 @@ function openBulkMapping(matchDataList) {
             // rating stays untouched
             state.players[idx].matchHistory = [
               ...(state.players[idx].matchHistory||[]),
-              { matchId, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, eloDelta }
+              { matchId, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, eloDelta }
             ];
           }
         });
@@ -2257,20 +2259,23 @@ function playerLeaderboardStats(p) {
   const damage  = hist.reduce((s,m)=>s+(m.damage||0), 0);
   const kd      = deaths > 0 ? kills/deaths : kills;
   const wr      = matches > 0 ? wins/matches : 0;
-  const lrValues = hist.map(m=>m.leetifyRating).filter(v=>v!==null&&v!==undefined);
-  const avgLR   = lrValues.length > 0 ? lrValues.reduce((a,b)=>a+b,0)/lrValues.length : null;
+  const lrValues   = hist.map(m=>m.leetifyRating).filter(v=>v!=null);
+  const avgLR     = lrValues.length > 0 ? lrValues.reduce((a,b)=>a+b,0)/lrValues.length : null;
+  const hltvVals  = hist.map(m=>m.hltvRating).filter(v=>v!=null);
+  const avgHLTV   = hltvVals.length > 0 ? hltvVals.reduce((a,b)=>a+b,0)/hltvVals.length : null;
   const rounds  = hist.reduce((s,m)=>{
     const mr = state.matches.find(x=>x.id===m.matchId);
     return s + (mr?.roundScore ? (mr.roundScore.ct + mr.roundScore.t) : 0);
   }, 0);
   const adr     = rounds > 0 ? damage/rounds : 0;
   const kpr     = rounds > 0 ? kills/rounds : 0;
-  return { matches, wins, kills, deaths, assists, kd, wr, kpr, adr, elo: p.elo??1000, rounds, avgLR };
+  return { matches, wins, kills, deaths, assists, kd, wr, kpr, adr, elo: p.elo??1000, rounds, avgLR, avgHLTV };
 }
 
 function renderLeaderboard() {
   const categories = [
     { id:"lr",   label:"LEETIFY",  desc:"Average Leetify Rating (min 3 matches)",  fmt: s=>s.avgLR!=null?`${(s.avgLR*100)>=0?"+":""}${(s.avgLR*100).toFixed(2)}`:"—", val: s=>(s.avgLR??-99)*100, min:3 },
+    { id:"hltv", label:"HLTV",     desc:"Average HLTV Rating 2.0 (min 3 matches)", fmt: s=>s.avgHLTV!=null?s.avgHLTV.toFixed(2):"—", val: s=>s.avgHLTV??-99, min:3 },
     { id:"adr",  label:"ADR",      desc:"Average damage per round (min 3 matches)",fmt: s=>s.adr.toFixed(1),           val: s=>s.adr,      min:3 },
     { id:"elo",  label:"ELO",      desc:"Performance-based ELO rating",          fmt: s=>`${s.elo}`,                   val: s=>s.elo,      min:1 },
     { id:"kd",   label:"K/D",      desc:"Kill/death ratio (min 3 matches)",      fmt: s=>s.kd.toFixed(2),              val: s=>s.kd,       min:3 },
