@@ -431,17 +431,99 @@ const DEFAULT_PLAYERS = [
 ];
 
 // ─── Persistence ───────────────────────────────────────────────────────────
-function loadData() {
+// ─── JSONBin config ───────────────────────────────────────────────────────
+const JSONBIN_ID  = "69fb285636566621a8301fa1";
+const JSONBIN_KEY = "$2a$10$GalhOKUMToi9MoA7hh2HJ.2m/h1oDgMoBR8gmhvyxbYia1SrEVGTW";
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`;
+let   saveTimeout = null;
+
+async function loadData() {
+  // 1. Load from localStorage instantly so the app is usable immediately
   try {
     const p = localStorage.getItem("cs2_players");
     const m = localStorage.getItem("cs2_matches");
     state.players = p ? JSON.parse(p) : JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
     state.matches  = m ? JSON.parse(m) : [];
-  } catch { state.players = JSON.parse(JSON.stringify(DEFAULT_PLAYERS)); state.matches = []; }
+  } catch {
+    state.players = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
+    state.matches = [];
+  }
+
+  // 2. Show a small syncing badge in the header while fetching remote
+  const showSync = (msg, color="var(--muted)") => {
+    let el = document.getElementById("sync-badge");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "sync-badge";
+      el.style.cssText = "font-size:11px;font-weight:700;letter-spacing:1px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);transition:opacity .3s";
+      document.getElementById("header-stats")?.after(el);
+    }
+    el.textContent = msg;
+    el.style.color = color;
+    el.style.opacity = "1";
+  };
+  const hideSync = () => {
+    const el = document.getElementById("sync-badge");
+    if (el) { el.style.opacity = "0"; setTimeout(()=>el.remove(), 400); }
+  };
+
+  showSync("⟳ SYNCING…");
+
+  // 3. Fetch from JSONBin in the background
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch(JSONBIN_URL + "/latest", {
+      headers: { "X-Master-Key": JSONBIN_KEY },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    const data = json.record || json;
+    if (data.players && data.players.length) {
+      state.players = data.players;
+      state.matches = data.matches || [];
+      localStorage.setItem("cs2_players", JSON.stringify(state.players));
+      localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
+      render();
+    }
+    showSync("✓ SYNCED", "#68D391");
+    setTimeout(hideSync, 2000);
+  } catch (err) {
+    if (err.name === "AbortError") {
+      showSync("⚠ OFFLINE", "#ECC94B");
+      setTimeout(hideSync, 3000);
+    } else {
+      console.error("JSONBin load error:", err);
+      showSync("⚠ CACHED", "#ECC94B");
+      setTimeout(hideSync, 3000);
+    }
+  }
 }
+
 function saveData() {
+  // Always cache locally as backup
   localStorage.setItem("cs2_players", JSON.stringify(state.players));
   localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
+  // Debounce remote saves — wait 800ms after last change before writing
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      await fetch(JSONBIN_URL, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Master-Key": JSONBIN_KEY,
+          "X-Bin-Versioning": "false"
+        },
+        body: JSON.stringify({ players: state.players, matches: state.matches })
+      });
+    } catch (err) {
+      console.error("JSONBin save error:", err);
+      flash("Save failed — data cached locally");
+    }
+  }, 800);
 }
 
 // ─── Flash ─────────────────────────────────────────────────────────────────
@@ -623,14 +705,14 @@ function bindRoster() {
   document.getElementById("search-input").addEventListener("input", e => {
     state.searchQ = e.target.value; render();
   });
-  document.getElementById("new-name").addEventListener("input", e => { state.addForm.name = e.target.value; });
-  document.getElementById("new-role").addEventListener("change", e => { state.addForm.role = e.target.value; });
-  document.getElementById("new-rating").addEventListener("input", e => {
+  document.getElementById("new-name")?.addEventListener("input", e => { state.addForm.name = e.target.value; });
+  document.getElementById("new-role")?.addEventListener("change", e => { state.addForm.role = e.target.value; });
+  document.getElementById("new-rating")?.addEventListener("input", e => {
     state.addForm.rating = +e.target.value;
     document.getElementById("rating-lbl").textContent = `Skill: ${rankLabel(state.addForm.rating)} (${state.addForm.rating})`;
   });
-  document.getElementById("add-btn").addEventListener("click", addPlayer);
-  document.getElementById("new-name").addEventListener("keydown", e => { if(e.key==="Enter") addPlayer(); });
+  document.getElementById("add-btn")?.addEventListener("click", addPlayer);
+  document.getElementById("new-name")?.addEventListener("keydown", e => { if(e.key==="Enter") addPlayer(); });
 
   document.getElementById("players-grid").addEventListener("click", e => {
     const editId   = e.target.closest("[data-edit]")?.dataset.edit;
@@ -2111,10 +2193,13 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
 });
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
-loadData();
 checkAdminSession();
-render();
-updateAdminBadge();
+(async () => {
+  // loadData now: renders cached data instantly, fetches remote in background
+  await loadData();
+  render();
+  updateAdminBadge();
+})();
 </script>
 </body>
 </html>
