@@ -265,6 +265,8 @@
     <div class="logo-sep">|</div>
     <div class="logo-title">PICKUP ORGANIZER</div>
     <div id="header-stats">0 players · 0 matches</div>
+  <div id="readonly-badge" style="display:none;padding:3px 10px;background:#1a2533;border:1px solid #2a3a4a;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:1px;color:#64748b">👁 VIEW ONLY</div>
+  <button id="admin-btn" onclick="promptAdmin()" style="padding:3px 10px;background:transparent;border:1px solid #1a2533;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:1px;color:#2a3a4a;cursor:pointer;font-family:var(--font)">🔒 Admin</button>
   </div>
 
   <div id="nav">
@@ -284,6 +286,53 @@
 // ─── Data & state ──────────────────────────────────────────────────────────
 const MAPS = ["Dust2","Mirage","Inferno","Nuke","Overpass","Ancient","Anubis","Vertigo","Cache"];
 const ROLES = ["Entry Fragger","AWPer","Support","IGL","Lurker","Flex"];
+
+// ─── Admin auth ───────────────────────────────────────────────────────────
+const ADMIN_HASH = "6b459776b8d6c34a17ff055736199da50101a9a2612e39b3b368c03fe60a7978";
+let READONLY = true; // default: readonly for everyone
+
+async function hashString(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function checkAdminSession() {
+  // Session-only: cleared when tab closes
+  READONLY = sessionStorage.getItem("cs2_admin") !== "1";
+}
+
+async function promptAdmin() {
+  const pw = prompt("Enter admin password:");
+  if (!pw) return;
+  const hash = await hashString(pw);
+  if (hash === ADMIN_HASH) {
+    sessionStorage.setItem("cs2_admin", "1");
+    READONLY = false;
+    render();
+    updateAdminBadge();
+    flash("Admin mode unlocked");
+  } else {
+    alert("Incorrect password.");
+  }
+}
+
+function updateAdminBadge() {
+  const badge = document.getElementById("readonly-badge");
+  const adminBtn = document.getElementById("admin-btn");
+  if (!badge || !adminBtn) return;
+  if (READONLY) {
+    badge.style.display = "block";
+    badge.textContent = "👁 VIEW ONLY";
+    adminBtn.textContent = "🔒 Admin";
+    document.querySelectorAll(".nav-btn[data-view='match']").forEach(b => b.style.display = "none");
+  } else {
+    badge.style.display = "block";
+    badge.textContent = "🔓 ADMIN";
+    badge.style.color = "#68D391";
+    adminBtn.textContent = "🔓 Admin";
+    document.querySelectorAll(".nav-btn[data-view='match']").forEach(b => b.style.display = "");
+  }
+}
 const RANK_LABELS = {
   1:"Silver 1",2:"Silver 2",3:"Silver 3",4:"Silver 4",5:"Silver Elite",6:"Silver Elite Master",
   7:"Gold Nova 1",8:"Gold Nova 2",9:"Gold Nova 3",10:"Gold Nova Master",
@@ -528,10 +577,10 @@ function playerCardHTML(p, selectable) {
         ${adr !== null ? `<span>ADR: <b>${adr.toFixed(1)}</b></span>` : ''}
         ${avgLR === null && adr === null ? `<span>Matches: <b>${total}</b></span>` : ''}
       </div>
-      <div style="display:flex;gap:5px;flex-shrink:0">
+      ${!READONLY ? `<div style="display:flex;gap:5px;flex-shrink:0">
         <button class="btn-icon" data-edit="${esc(p.id)}" title="Edit">✎</button>
         <button class="btn-icon danger" data-remove="${esc(p.id)}" title="Remove">✕</button>
-      </div>
+      </div>` : ''}
     </div>
     ${total > 0 ? `<div style="display:flex;align-items:center;gap:6px;margin-top:12px">${last5.replace(/font-size:18px/g,'font-size:22px')}</div>` : ''}
   </div>`;
@@ -549,7 +598,7 @@ function renderRoster() {
     <span id="search-count">${filtered.length} / ${state.players.length}</span>
   </div>
 
-  <div class="card" style="margin-bottom:20px">
+  ${!READONLY ? `<div class="card" style="margin-bottom:20px">
     <div class="sec-label">ADD PLAYER</div>
     <div id="add-form">
       <input type="text" id="new-name" placeholder="Player name" value="${esc(state.addForm.name)}" />
@@ -562,7 +611,7 @@ function renderRoster() {
       </div>
       <button class="btn btn-primary" id="add-btn">+ ADD</button>
     </div>
-  </div>
+  </div>` : ''}
 
   <div class="players-grid" id="players-grid">
     ${filtered.map(p=>playerCardHTML(p, true)).join('')}
@@ -1517,10 +1566,10 @@ function renderHistory() {
   if (state.matches.length===0) return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
       <div style="font-size:18px;font-weight:700;color:var(--text)">MATCH HISTORY</div>
-      <button class="btn btn-ghost" id="bulk-import-btn" style="border-color:#f84982;color:#f84982;gap:8px">
+      ${!READONLY ? `<button class="btn btn-ghost" id="bulk-import-btn" style="border-color:#f84982;color:#f84982;gap:8px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="#f84982"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
         IMPORT PAST MATCHES
-      </button>
+      </button>` : ''}
     </div>
     <div class="empty-state" style="padding-top:30px">
       <span class="empty-icon">📋</span>
@@ -1579,7 +1628,7 @@ function renderHistory() {
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           <span style="color:var(--muted);font-size:12px;font-family:var(--mono)">${esc(date)}</span>
-          <button class="btn-icon danger" data-delete-match="${esc(m.id)}" title="Remove match" style="font-size:13px;padding:4px 8px">✕</button>
+          ${!READONLY ? `<button class="btn-icon danger" data-delete-match="${esc(m.id)}" title="Remove match" style="font-size:13px;padding:4px 8px">✕</button>` : ''}
         </div>
       </div>
       ${m.roundScore ? `
@@ -1606,10 +1655,10 @@ function renderHistory() {
   return `
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
     <div style="font-size:18px;font-weight:700;color:var(--text)">MATCH HISTORY</div>
-    <button class="btn btn-ghost" id="bulk-import-btn" style="border-color:#f84982;color:#f84982;gap:8px">
+    ${!READONLY ? `<button class="btn btn-ghost" id="bulk-import-btn" style="border-color:#f84982;color:#f84982;gap:8px">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="#f84982"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
       IMPORT PAST MATCHES
-    </button>
+    </button>` : ''}
   </div>
   <div id="history-list">${cards}</div>`;
 }
@@ -2063,7 +2112,9 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
 loadData();
+checkAdminSession();
 render();
+updateAdminBadge();
 </script>
 </body>
 </html>
