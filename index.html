@@ -1335,11 +1335,17 @@ function renderMatch() {
     <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px">TEAMS BALANCED</div>
     <div style="color:var(--muted);font-size:13px;margin-bottom:20px">Select a map to start the match</div>`;
 
+  const label1 = teamLabel(ct,"Team 1");
+  const label2 = teamLabel(t, "Team 2");
+
   return `
   ${matchHeader}
   <div class="teams-row" style="margin-bottom:20px">
-    ${teamColHTML(ct, teamLabel(ct,"Team 1"), "ct", inMatch, !!state.pendingStats.ct)}
-    ${teamColHTML(t,  teamLabel(t, "Team 2"), "t",  inMatch, !!state.pendingStats.t)}
+    ${teamColHTML(ct, label1, "ct", inMatch, !!state.pendingStats.ct)}
+    ${teamColHTML(t,  label2, "t",  inMatch, !!state.pendingStats.t)}
+  </div>
+  <div style="margin-bottom:20px">
+    <button class="btn btn-ghost" id="copy-teams-btn" style="gap:8px">📋 COPY TEAMS FOR DISCORD</button>
   </div>
   ${mapPicker}
   ${winPanel}
@@ -1363,6 +1369,29 @@ function bindMatch() {
     btn.addEventListener("click", () => finalizeMatch(btn.dataset.winner));
   });
   document.getElementById("leetify-import-btn")?.addEventListener("click", openLeetifyImport);
+
+  document.getElementById("copy-teams-btn")?.addEventListener("click", () => {
+    const { ct, t } = state.currentMatch || state.teams;
+    const label1 = teamLabel(ct, "Team 1");
+    const label2 = teamLabel(t,  "Team 2");
+    const avg = arr => (arr.reduce((s,p)=>s+p.rating,0)/arr.length).toFixed(1);
+    const mapLine = state.currentMatch ? `Map: ${state.currentMatch.map}\n\n` : '';
+    const formatTeam = (players, label) => {
+      const lines = players
+        .slice().sort((a,b)=>b.rating-a.rating)
+        .map(p => `  • ${p.name} (${p.rating.toFixed(1)})`).join('\n');
+      return `${label} [avg ${avg(players)}]\n${lines}`;
+    };
+    const text = `🎲 10-Man Teams\n\n${mapLine}${formatTeam(ct, label1)}\n\n${formatTeam(t, label2)}`;
+    navigator.clipboard.writeText(text).then(() => flash("Teams copied to clipboard!")).catch(() => {
+      // fallback for browsers that block clipboard
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); ta.remove();
+      flash("Teams copied to clipboard!");
+    });
+  });
 }
 
 // ─── Leetify import ──────────────────────────────────────────────────────
