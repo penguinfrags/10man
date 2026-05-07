@@ -560,11 +560,21 @@ async function loadData() {
     }
     const data = json.record || json;
     if (data.players && data.players.length) {
-      state.players = data.players;
-      state.matches = data.matches || [];
-      localStorage.setItem("cs2_players", JSON.stringify(state.players));
-      localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
-      render();
+      // Only overwrite local data if remote is newer
+      // Track last save time in both local and remote
+      const remoteTs  = data._savedAt || 0;
+      const localTs   = parseInt(localStorage.getItem("cs2_savedAt") || "0");
+      if (remoteTs >= localTs) {
+        state.players = data.players;
+        state.matches = data.matches || [];
+        localStorage.setItem("cs2_players", JSON.stringify(state.players));
+        localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
+        localStorage.setItem("cs2_savedAt", String(remoteTs));
+        render();
+      } else {
+        console.log("[Sync] Remote data is older than local — keeping local. Remote:", new Date(remoteTs).toISOString(), "Local:", new Date(localTs).toISOString());
+        showSync("✓ LOCAL NEWER", "#68D391");
+      }
     }
     showSync("✓ SYNCED", "#68D391");
     hideSpinner();
@@ -585,18 +595,18 @@ async function loadData() {
 
 function saveData() {
   // Always cache locally as backup
+  const savedAt = Date.now();
   localStorage.setItem("cs2_players", JSON.stringify(state.players));
   localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
+  localStorage.setItem("cs2_savedAt", String(savedAt));
   // Debounce remote saves — wait 800ms after last change before writing
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
     try {
       await fetch(JSONBIN_URL, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ players: state.players, matches: state.matches })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ players: state.players, matches: state.matches, _savedAt: savedAt })
       });
     } catch (err) {
       console.error("JSONBin save error:", err);
