@@ -480,6 +480,8 @@ const DEFAULT_PLAYERS = [
   {id:genId(),name:"ziGGeh",rating:15,role:"Flex",matchHistory:[],aliases:["mofries","76561198095252278"],steam64Id:"76561198095252278"},
   {id:genId(),name:"adhd",rating:9,role:"Flex",matchHistory:[],aliases:["paul enhance","paulenhance","paul enhance golf capabilitie 3","76561199121686569"],steam64Id:"76561199121686569"},
   {id:genId(),name:"Bill Nogel",rating:9,role:"Flex",matchHistory:[],aliases:["bill nogel","billnogel","ophianoi","76561199089196165"],steam64Id:"76561199089196165"},
+  {id:genId(),name:"didd",rating:5,role:"Flex",matchHistory:[],aliases:["76561198299085127"],steam64Id:"76561198299085127"},
+  {id:genId(),name:"un4ch",rating:7,role:"Flex",matchHistory:[],aliases:["76561199406217464"],steam64Id:"76561199406217464"},
 ];
 
 // ─── Persistence ───────────────────────────────────────────────────────────
@@ -1301,7 +1303,10 @@ function renderMatch() {
 
   const mapPicker = !inMatch ? `
     <div class="card">
-      <div class="sec-label">SELECT MAP</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="sec-label" style="margin:0">SELECT MAP</div>
+        <button class="btn btn-ghost" id="random-map-btn" style="gap:6px;font-size:12px;padding:6px 12px">🎲 RANDOM</button>
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:10px">
         ${MAPS.map(m=>`<button class="map-btn" data-start-map="${esc(m)}">${esc(m.toUpperCase())}</button>`).join('')}
       </div>
@@ -1370,6 +1375,15 @@ function bindMatch() {
   });
   document.getElementById("leetify-import-btn")?.addEventListener("click", openLeetifyImport);
 
+  document.getElementById("random-map-btn")?.addEventListener("click", () => {
+    const map = MAPS[Math.floor(Math.random() * MAPS.length)];
+    flash(`🎲 Random map: ${map}`);
+    // Highlight the selected map button
+    document.querySelectorAll(".map-btn").forEach(b => {
+      b.style.borderColor = b.dataset.startMap === map ? "var(--red)" : "";
+      b.style.color = b.dataset.startMap === map ? "var(--red)" : "";
+    });
+  });
   document.getElementById("copy-teams-btn")?.addEventListener("click", () => {
     const { ct, t } = state.currentMatch || state.teams;
     const label1 = teamLabel(ct, "Team 1");
@@ -1753,7 +1767,10 @@ function openMatchDetail(matchId) {
   overlay.innerHTML = `
     <div class="modal-box" style="width:min(560px,95vw)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(m.map)}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(m.map)}</div>
+          ${m.leetifyGameId ? `<a href="https://leetify.com/app/match-details/${esc(m.leetifyGameId)}/overview" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#f84982;text-decoration:none;padding:3px 8px;border:1px solid #f8498244;border-radius:6px">LEETIFY ↗</a>` : ''}
+        </div>
         <span style="padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;${badgeStyle}">${esc(teamLabel(m.winner==="ct"?ctPs:tPs,"Team 1"))} WIN</span>
       </div>
       <div style="color:var(--muted);font-size:12px;margin-bottom:18px;font-family:var(--mono)">${esc(date)}</div>
@@ -1825,7 +1842,10 @@ function openPlayerProfile(pid) {
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
         <div style="flex-shrink:0">${rankBadgeSVG(p.rating, color)}</div>
         <div style="flex:1">
-          <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(p.name)}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(p.name)}</div>
+            ${p.steam64Id ? `<a href="https://leetify.com/app/profile/${esc(p.steam64Id)}" target="_blank" rel="noopener" style="font-size:11px;font-weight:700;color:#f84982;text-decoration:none;padding:3px 8px;border:1px solid #f8498244;border-radius:6px">LEETIFY ↗</a>` : ''}
+          </div>
           <div style="font-size:12px;color:${color};font-weight:700;margin-top:2px">${esc(rankLabel(p.rating))} · ${p.rating.toFixed(1)}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:1px">${esc(p.role)}</div>
         </div>
@@ -2302,6 +2322,7 @@ function openBulkMapping(matchDataList) {
 
   document.getElementById("bulk-map-confirm").addEventListener("click", () => {
     let imported = 0, skipped = 0;
+    const importLog = [];
 
     // Collect both selects (side + roster) keyed by match+player
     const matchMaps = {};   // matchMaps[mi][pi] = { pid, side }
@@ -2321,10 +2342,10 @@ function openBulkMapping(matchDataList) {
     parsedMatches.forEach((m, mi) => {
       const mapping = matchMaps[mi] || {};
       const entries = Object.values(mapping).filter(e=>e.pid && e.side);
-      if (!entries.length) { skipped++; return; }
+      if (!entries.length) { skipped++; importLog.push({map:m.map,status:'skipped',reason:'No players mapped'}); return; }
 
       // Skip if this gameId already imported
-      if (m.gameId && state.matches.some(x=>x.leetifyGameId===m.gameId)) { skipped++; return; }
+      if (m.gameId && state.matches.some(x=>x.leetifyGameId===m.gameId)) { skipped++; importLog.push({map:m.map,status:'skipped',reason:'Already imported'}); return; }
 
       // Build teams directly from the explicit side dropdowns
       const ctIds = entries.filter(e=>e.side==="ct").map(e=>e.pid);
@@ -2383,13 +2404,41 @@ function openBulkMapping(matchDataList) {
         scores,
         roundScore: m.roundScore || null,
       });
+      importLog.push({map:m.map,status:'imported',reason:`${ctIds.length+tIds.length} players · ${m.winner==='ct'?teamLabel(ctPlayers,'Team 1'):teamLabel(tPlayers,'Team 2')} won`});
       imported++;
     });
 
     saveData();
     overlay.remove();
     render();
-    flash(`Imported ${imported} match${imported!==1?"es":""}${skipped?` · ${skipped} skipped`:""}`);
+
+    // Show detailed import log
+    const logOverlay = document.createElement("div");
+    logOverlay.className = "modal-overlay";
+    logOverlay.innerHTML = `
+      <div class="modal-box" style="width:min(480px,95vw)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f84982" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <h3 style="color:var(--text);font-size:16px">Import Complete</h3>
+        </div>
+        <div style="max-height:400px;overflow-y:auto;margin-bottom:16px">
+          ${importLog.map(entry => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:8px;margin-bottom:6px;border:1px solid ${entry.status==='imported'?'#2d5a2d':entry.status==='skipped'?'var(--border)':'#7a1f1f'}">
+            <span style="font-size:16px">${entry.status==='imported'?'✅':entry.status==='skipped'?'⏭':'❌'}</span>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:700;color:var(--text)">${esc(entry.map)}</div>
+              <div style="font-size:11px;color:var(--muted)">${esc(entry.reason)}</div>
+            </div>
+          </div>`).join('')}
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px">
+          <b style="color:#68D391">${imported}</b> imported · <b style="color:var(--muted)">${skipped}</b> skipped
+        </div>
+        <button class="btn btn-primary" style="width:100%" id="import-log-close">Done</button>
+      </div>`;
+    document.body.appendChild(logOverlay);
+    document.getElementById("import-log-close").addEventListener("click", () => logOverlay.remove());
+    logOverlay.addEventListener("click", e => { if(e.target===logOverlay) logOverlay.remove(); });
   });
 }
 
