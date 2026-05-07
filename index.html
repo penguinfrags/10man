@@ -459,26 +459,26 @@ let state = {
 
 const DEFAULT_PLAYERS = [
   {id:genId(),name:"ambient",rating:10,role:"Flex",matchHistory:[]},
-  {id:genId(),name:"apt",rating:6,role:"Flex",matchHistory:[],aliases:["john gilkison","johng","johngilkison","karl dandleton","karldandleton","gunkleman"]},
+  {id:genId(),name:"apt",rating:6,role:"Flex",matchHistory:[],aliases:["john gilkison","johng","johngilkison","karl dandleton","karldandleton","gunkleman","john gilkinson","76561198065600921"],steam64Id:"76561198065600921"},
   {id:genId(),name:"attkr",rating:13,role:"Flex",matchHistory:[],aliases:[]},
-  {id:genId(),name:"Benton",rating:9,role:"Flex",matchHistory:[],aliases:["james_plays_games","jamesplaysgames","james plays games"]},
+  {id:genId(),name:"Benton",rating:9,role:"Flex",matchHistory:[],aliases:["james_plays_games","jamesplaysgames","james plays games","james_plays_games65","76561199220607611"],steam64Id:"76561199220607611"},
   {id:genId(),name:"Chris",rating:9,role:"Flex",matchHistory:[]},
-  {id:genId(),name:"cows",rating:8,role:"Flex",matchHistory:[]},
-  {id:genId(),name:"glyde",rating:16,role:"Flex",matchHistory:[],aliases:["kaylanelson","kayla nelson","76561199074380290"]},
-  {id:genId(),name:"Glynth",rating:8,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"cows",rating:8,role:"Flex",matchHistory:[],aliases:["Cows","76561198915416195"],steam64Id:"76561198915416195"},
+  {id:genId(),name:"glyde",rating:16,role:"Flex",matchHistory:[],aliases:["kaylanelson","kayla nelson","76561199074380290"],steam64Id:"76561199074380290"},
+  {id:genId(),name:"Glynth",rating:8,role:"Flex",matchHistory:[],aliases:["76561198038737100"],steam64Id:"76561198038737100"},
   {id:genId(),name:"gwhatkey",rating:14,role:"Flex",matchHistory:[]},
-  {id:genId(),name:"krypa",rating:9,role:"Flex",matchHistory:[]},
-  {id:genId(),name:"liftie",rating:11,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"krypa",rating:9,role:"Flex",matchHistory:[],aliases:["Krypa","76561198144307152"],steam64Id:"76561198144307152"},
+  {id:genId(),name:"liftie",rating:11,role:"Flex",matchHistory:[],aliases:["76561198414631553"],steam64Id:"76561198414631553"},
   {id:genId(),name:"lnr",rating:8,role:"Flex",matchHistory:[]},
-  {id:genId(),name:"mb",rating:12,role:"Flex",matchHistory:[]},
+  {id:genId(),name:"mb",rating:12,role:"Flex",matchHistory:[],aliases:["76561197960272854"],steam64Id:"76561197960272854"},
   {id:genId(),name:"gnarly",rating:7,role:"Flex",matchHistory:[],aliases:["freak!/oddity","freakodity","freak!","oddity","freakslashOddity"]},
-  {id:genId(),name:"penguin",rating:14,role:"Flex",matchHistory:[],aliases:["tae bo blackbelt","taeboblackbelt","tae bo"]},
+  {id:genId(),name:"penguin",rating:14,role:"Flex",matchHistory:[],aliases:["tae bo blackbelt","taeboblackbelt","tae bo","tae bo black belt","76561197960318045"],steam64Id:"76561197960318045"},
   {id:genId(),name:"stu",rating:9,role:"Flex",matchHistory:[],aliases:["bigxturdstealer","BIGxTURDSTEALER","big x turd stealer"]},
-  {id:genId(),name:"tiny",rating:8,role:"Flex",matchHistory:[]},
-  {id:genId(),name:"twigs",rating:9,role:"Flex",matchHistory:[]},
-  {id:genId(),name:"yrb",rating:13,role:"Flex",matchHistory:[],aliases:["bbbbb","loom_weaver","loomweaver"]},
-  {id:genId(),name:"ziGGeh",rating:15,role:"Flex",matchHistory:[],aliases:["mofries"]},
-  {id:genId(),name:"adhd",rating:9,role:"Flex",matchHistory:[],aliases:["paul enhance","paulenhance"]},
+  {id:genId(),name:"tiny",rating:8,role:"Flex",matchHistory:[],aliases:["76561198010743348"],steam64Id:"76561198010743348"},
+  {id:genId(),name:"twigs",rating:9,role:"Flex",matchHistory:[],aliases:["jacobfuckingjones","76561198059884645"],steam64Id:"76561198059884645"},
+  {id:genId(),name:"yrb",rating:13,role:"Flex",matchHistory:[],aliases:["bbbbb","loom_weaver","loomweaver","bbbbbbb","76561197995498677"],steam64Id:"76561197995498677"},
+  {id:genId(),name:"ziGGeh",rating:15,role:"Flex",matchHistory:[],aliases:["mofries","76561198095252278"],steam64Id:"76561198095252278"},
+  {id:genId(),name:"adhd",rating:9,role:"Flex",matchHistory:[],aliases:["paul enhance","paulenhance","paul enhance golf capabilitie 3","76561199121686569"],steam64Id:"76561199121686569"},
   {id:genId(),name:"Bill Nogel",rating:9,role:"Flex",matchHistory:[],aliases:["bill nogel","billnogel","ophianoi"]},
 ];
 
@@ -734,7 +734,12 @@ function playerCardHTML(p, selectable) {
           <div style="font-size:16px;color:${color};font-weight:700;letter-spacing:.5px">${esc(label)}</div>
           ${elo !== null ? `<div style="font-size:15px;font-weight:700;color:var(--muted);font-family:var(--mono)">ELO <span style="color:${netColor}">${elo}</span></div>` : ''}
         </div>
-        <div class="player-role" style="margin-top:4px">${esc(p.role)}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <div class="player-role">${esc(p.role)}</div>
+          ${p.steam64Id ? `<a href="https://leetify.com/app/profile/${esc(p.steam64Id)}" target="_blank" rel="noopener"
+            style="font-size:11px;font-weight:700;color:#f84982;text-decoration:none;letter-spacing:.5px;padding:2px 6px;border:1px solid #f8498244;border-radius:4px;flex-shrink:0"
+            onclick="event.stopPropagation()">LEETIFY ↗</a>` : ''}
+        </div>
       </div>
       ${selectable ? `<div style="font-size:15px;font-weight:700;letter-spacing:1px;color:${inLobby?'#68D391':'#4299E1'};text-align:right;flex-shrink:0">${inLobby?'✓ IN<br>LOBBY':'+ ADD<br>LOBBY'}</div>` : ''}
     </div>
@@ -1455,14 +1460,22 @@ function openLeetifyMapping(data) {
     const teamNum = s.initialTeamNumber ?? s.teamNumber ?? s.team_number ?? null;
     const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
     console.log("[Leetify import] player:", name, "K/D/A:", kills, deaths, assists, "dmg:", damage, "team:", teamNum, "->", side);
-    // find best roster match — check player name AND all aliases
-    let bestId = "", bestScore = -1;
-    allRosterPlayers.forEach(p => {
-      const namesToCheck = [p.name, ...(p.aliases || [])];
-      const score = Math.max(...namesToCheck.map(n => similarity(name, n)));
-      if (score > bestScore) { bestScore = score; bestId = p.id; }
-    });
-    return { name, kills, deaths, assists, damage, leetifyRating, hltvRating, side, suggestedId: bestId };
+    // Match by steam64Id first (exact, reliable), then name/alias similarity
+    const steam64 = s.steam64Id || s.steam_64_id || null;
+    let bestId = "";
+    if (steam64) {
+      const exact = allRosterPlayers.find(p => p.steam64Id === steam64 || (p.aliases||[]).includes(steam64));
+      if (exact) bestId = exact.id;
+    }
+    if (!bestId) {
+      let bestScore = -1;
+      allRosterPlayers.forEach(p => {
+        const namesToCheck = [p.name, ...(p.aliases || [])];
+        const score = Math.max(...namesToCheck.map(n => similarity(name, n)));
+        if (score > bestScore) { bestScore = score; bestId = p.id; }
+      });
+    }
+    return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, side, suggestedId: bestId };
   });
 
   const overlay = document.createElement("div");
@@ -2078,7 +2091,12 @@ function openBulkMapping(matchDataList) {
     return matches / Math.max(a.length, b.length);
   };
 
-  const findBestPlayer = (steamName) => {
+  const findBestPlayer = (steamName, steam64 = null) => {
+    // Steam64 ID match first — exact and immune to name changes
+    if (steam64) {
+      const exact = state.players.find(p => p.steam64Id === steam64 || (p.aliases||[]).includes(steam64));
+      if (exact) return exact.id;
+    }
     let bestId = "", bestScore = -1;
     state.players.forEach(p => {
       const candidates = [p.name, ...(p.aliases||[])];
@@ -2123,7 +2141,8 @@ function openBulkMapping(matchDataList) {
       const teamNum = s.initialTeamNumber ?? s.teamNumber ?? s.team_number ?? null;
       const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
       console.log("[Leetify bulk] player", name, "initialTeamNumber:", teamNum, "->", side);
-      return { name, kills, deaths, assists, damage, leetifyRating, hltvRating, teamNum, side, suggestedId: findBestPlayer(name) };
+      const steam64 = s.steam64Id || s.steam_64_id || null;
+      return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, teamNum, side, suggestedId: findBestPlayer(name, steam64) };
     });
     // Derive round score: each team's total rounds won
     const team2p = ps2.find ? ps2.find(s=>(s.initialTeamNumber??s.teamNumber)===2) : null;
