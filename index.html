@@ -459,7 +459,7 @@ let state = {
 
 const DEFAULT_PLAYERS = [
   {id:genId(),name:"ambient",rating:10,matchHistory:[],aliases:["76561198171467409"],steam64Id:"76561198171467409"},
-  {id:genId(),name:"apt",rating:6,matchHistory:[],aliases:["john gilkison","johng","johngilkison","karl dandleton","karldandleton","gunkleman","john gilkinson","76561198065600921"],steam64Id:"76561198065600921"},
+  {id:genId(),name:"apt",rating:5,matchHistory:[],aliases:["john gilkison","johng","johngilkison","karl dandleton","karldandleton","gunkleman","john gilkinson","76561198065600921"],steam64Id:"76561198065600921"},
   {id:genId(),name:"attkr",rating:13,matchHistory:[],aliases:["76561198105426879"],steam64Id:"76561198105426879"},
   {id:genId(),name:"Benton",rating:9,matchHistory:[],aliases:["james_plays_games","jamesplaysgames","james plays games","james_plays_games65","76561199220607611"],steam64Id:"76561199220607611"},
   {id:genId(),name:"Chris",rating:9,matchHistory:[],aliases:["76561197970943204"],steam64Id:"76561197970943204"},
@@ -956,7 +956,20 @@ function openEdit(id) {
     const newAliases = newSteamId && !baseAliases.includes(newSteamId) ? [...baseAliases, newSteamId] : baseAliases;
     if(!newName) { flash("Name can't be empty"); return; }
     const idx = state.players.findIndex(x=>x.id===id);
-    if(idx>-1) { state.players[idx] = {...state.players[idx], name:newName, rating:newRating, aliases:newAliases, ...(newSteamId?{steam64Id:newSteamId}:{})}; }
+    if(idx>-1) {
+      const oldRating = state.players[idx].rating;
+      const ratingChanged = oldRating !== newRating;
+      state.players[idx] = {
+        ...state.players[idx],
+        name: newName,
+        rating: newRating,
+        aliases: newAliases,
+        ...(newSteamId ? { steam64Id: newSteamId } : {}),
+        // Reset ELO and hidden rating if rating changed
+        ...(ratingChanged ? { elo: 1000, mu: newRating * TS_MU_SCALE, sigma: TS_SIGMA_INIT } : {})
+      };
+      if (ratingChanged) flash(`${newName} rating ${oldRating.toFixed(1)} → ${newRating.toFixed(1)} · ELO reset to 1000`);
+    }
     saveData(); overlay.remove(); render();
     flash(`${newName} updated`);
   });
