@@ -936,6 +936,7 @@ function openEdit(id) {
       <input id="edit-rating" type="range" min="1" max="18" step="0.5" value="${p.rating}" style="width:100%;margin-bottom:20px" />
       <div style="display:flex;gap:10px">
         <button class="btn btn-ghost" id="edit-cancel">Cancel</button>
+        ${!READONLY ? `<button class="btn btn-ghost" id="edit-reset-elo" style="border-color:#ECC94B;color:#ECC94B" title="Reset ELO to 1000">↺ RESET ELO</button>` : ''}
         <button class="btn btn-primary" style="flex:2" id="edit-save">Save Changes</button>
       </div>
     </div>`;
@@ -945,6 +946,16 @@ function openEdit(id) {
     document.getElementById("edit-rating-lbl").textContent = `Rating: ${rankLabel(Math.round(+e.target.value))} (${(+e.target.value).toFixed(1)})`;
   });
   document.getElementById("edit-cancel").addEventListener("click", () => overlay.remove());
+  document.getElementById("edit-reset-elo")?.addEventListener("click", () => {
+    const idx = state.players.findIndex(x=>x.id===id);
+    if (idx>-1) {
+      state.players[idx].elo   = 1000;
+      state.players[idx].mu    = state.players[idx].rating * TS_MU_SCALE;
+      state.players[idx].sigma = TS_SIGMA_INIT;
+      saveData();
+      flash(`${state.players[idx].name} ELO reset to 1000`);
+    }
+  });
   document.getElementById("edit-save").addEventListener("click", () => {
     const newName    = document.getElementById("edit-name").value.trim();
 
