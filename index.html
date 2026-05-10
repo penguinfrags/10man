@@ -1027,17 +1027,42 @@ function bindLobby() {
   });
 }
 
-function balanceTeams() {
-  if (state.lobby.length !== 10) return;
-  const pool = state.lobby.map(id=>state.players.find(p=>p.id===id)).filter(Boolean).sort((a,b)=>b.rating-a.rating);
+function buildBalancedTeams() {
+  // Sort by rating but shuffle players within 1.0 rating of each other
+  // This prevents the same teams forming every time with the same lobby
+  const players = state.lobby.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+  
+  // Shuffle within tiers: group players within 1.0 rating of each other, shuffle each group
+  const sorted = [...players].sort((a,b) => b.rating - a.rating);
+  const tiered = [];
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i + 1;
+    while (j < sorted.length && sorted[i].rating - sorted[j].rating < 1.0) j++;
+    const group = sorted.slice(i, j);
+    // Fisher-Yates shuffle within tier
+    for (let k = group.length - 1; k > 0; k--) {
+      const r = Math.floor(Math.random() * (k + 1));
+      [group[k], group[r]] = [group[r], group[k]];
+    }
+    tiered.push(...group);
+    i = j;
+  }
+  
+  // Snake draft from shuffled-tier pool
   const ct=[], t=[];
-  pool.forEach((p,i) => {
+  tiered.forEach((p,i) => {
     const block = Math.floor(i/2);
     const pos   = i%2;
     if(block%2===0) { pos===0?ct.push(p):t.push(p); }
     else            { pos===0?t.push(p):ct.push(p); }
   });
-  state.teams = { ct, t };
+  return { ct, t };
+}
+
+function balanceTeams() {
+  if (state.lobby.length !== 10) return;
+  state.teams = buildBalancedTeams();
   state.currentMatch = null;
   state.pendingStats = {};
   setView("match");
@@ -1352,7 +1377,8 @@ function renderMatch() {
     ${teamColHTML(ct, label1, "ct", inMatch, !!state.pendingStats.ct)}
     ${teamColHTML(t,  label2, "t",  inMatch, !!state.pendingStats.t)}
   </div>
-  <div style="margin-bottom:20px">
+  <div style="display:flex;gap:10px;margin-bottom:20px">
+    ${!inMatch ? `<button class="btn btn-ghost" id="reroll-btn" style="gap:6px">🎲 REROLL TEAMS</button>` : ''}
     <button class="btn btn-ghost" id="copy-teams-btn" style="gap:8px">📋 COPY TEAMS FOR DISCORD</button>
   </div>
   ${mapPicker}
@@ -1387,6 +1413,13 @@ function bindMatch() {
       b.style.color = b.dataset.startMap === map ? "var(--red)" : "";
     });
   });
+  document.getElementById("reroll-btn")?.addEventListener("click", () => {
+    if (state.lobby.length !== 10) { flash("Need 10 players in lobby to reroll"); return; }
+    state.teams = buildBalancedTeams();
+    render();
+    flash("Teams rerolled!");
+  });
+
   document.getElementById("copy-teams-btn")?.addEventListener("click", () => {
     const { ct, t } = state.currentMatch || state.teams;
     const label1 = teamLabel(ct, "Team 1");
