@@ -3015,12 +3015,21 @@ function openMatchAwards(matchId) {
   const players = allIds.map(id => {
     const p = state.players.find(x=>x.id===id);
     if (!p) return null;
-    const side = match.teams.ct.includes(id) ? "ct" : "t";
-    const s = match.scores?.[side]?.[id] || {};
+    const s = getStats(id);
     return { id, name: p.name, ...s };
   }).filter(Boolean);
 
   if (players.length === 0) { flash("No player stats available for awards"); return; }
+
+  // Build a merged stats object for each player: scores entry + matchHistory entry
+  // This ensures new fields (reactionTime etc) are found even if scores wasn't updated
+  const getStats = (pid) => {
+    const side = match.teams.ct.includes(pid) ? "ct" : "t";
+    const scoreEntry = match.scores?.[side]?.[pid] || {};
+    const p = state.players.find(x=>x.id===pid);
+    const histEntry = (p?.matchHistory||[]).find(h=>h.matchId===match.id) || {};
+    return { ...histEntry, ...scoreEntry }; // scores takes priority but histEntry fills gaps
+  };
 
   // Award definitions — each gets assigned to exactly one player
   const AWARDS = [
@@ -3095,7 +3104,7 @@ function openMatchAwards(matchId) {
 
   const renderTeamCards = (teamPlayers) => teamPlayers.map(p => {
     const award = assigned.get(p.id) || { emoji:"🎮", title:"Just Vibing", desc:"Participated" };
-    const s = match.scores?.[match.teams.ct.includes(p.id)?"ct":"t"]?.[p.id] || {};
+    const s = getStats(p.id);
     const rc = rankColor(state.players.find(x=>x.id===p.id)?.rating||5);
     const kd = s.deaths>0 ? (s.kills/s.deaths).toFixed(2) : (s.kills||0);
     const adr = rounds && s.damage ? (s.damage/rounds).toFixed(1) : null;
