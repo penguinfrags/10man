@@ -3104,7 +3104,7 @@ function openMatchAwards(matchId) {
     { id:"deaths",   emoji:"💀", title:"Bullet Sponge",      desc:"Absorbing enemy attention",   pri:23, val: p=>p.deaths>0?p.deaths:-999,                                                     higher:true },
     { id:"lowleet",  emoji:"📉", title:"Leetify Victim",     desc:"Leetify has thoughts. Not good ones.", pri:16, val: p=>p.leetifyRating!=null?-p.leetifyRating:-999,               higher:true },
     { id:"hsp",      emoji:"🎯", title:"Headhunter",          desc:"Aim for the head, always",         pri:17, val: p=>p.hsp!=null?p.hsp:-999,                                          higher:true },
-    { id:"spray",    emoji:"💦", title:"Spray Artist",        desc:"Taming recoil like a pro",          pri:18, val: p=>p.sprayAccuracy!=null?p.sprayAccuracy:-999,                      higher:true },
+    { id:"spray",    emoji:"💦", title:"Spray Artist",        desc:"Highest spray accuracy",            pri:18, val: p=>p.sprayAccuracy!=null?p.sprayAccuracy:-999,                      higher:true },
     { id:"ffriend",  emoji:"🤝", title:"Team Player",        desc:"Most team flashes",                pri:19, val: p=>p.flashFriend>0?p.flashFriend:-999,                                               higher:true },
     { id:"lowkast",  emoji:"📺", title:"Spectator Mode",     desc:"Lowest KAST%",                     pri:20, val: p=>p.kast!=null?-p.kast:-999,                                      higher:true },
     { id:"utility",  emoji:"🎒", title:"Hoarder",             desc:"Died with a full utility belt",    pri:21, val: p=>p.utilityOnDeath!=null?p.utilityOnDeath:-999,                   higher:true },
@@ -3249,7 +3249,7 @@ function openMatchAwards(matchId) {
     else if (award.id==="ffriend") statVal = `${s.flashFriend||0} friendlies`;
     else if (award.id==="spray") statVal = s.accuracy ? `${(s.accuracy*100).toFixed(1)}%` : "";
     else if (award.id==="spin") statVal = s.counterRatio ? `${(s.counterRatio*100).toFixed(0)}%` : "";
-    const funny = ["lowdmg","deaths","ammo","reload","ffriend","lowkast","spray","spin"].includes(award.id);
+    const funny = SHAME_IDS.has(award.id);
     return `
     <div style="background:var(--bg3);border:1px solid ${funny?'#7a1f1f44':'var(--border)'};border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:4px;height:100%;box-sizing:border-box;min-width:0;word-break:break-word">
       <div style="font-size:24px;line-height:1">${award.emoji}</div>
