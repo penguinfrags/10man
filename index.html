@@ -3159,7 +3159,7 @@ function openMatchAwards(matchId) {
     const ranked = [...players].sort((a,b) => award.val(b) - award.val(a));
     const trueTop = ranked[0];
     if (!trueTop || award.val(trueTop) === -999) return;
-    if (!SHAME_IDS.has(award.id) && award.val(trueTop) === 0) return;
+    if (!SHAME_IDS.has(award.id) && award.val(trueTop) <= 0) return;
     if (!assigned.has(trueTop.id)) {
       assigned.set(trueTop.id, award);
       usedAwards.add(award.id);
@@ -3214,7 +3214,7 @@ function openMatchAwards(matchId) {
     else if (award.id==="trade") statVal = `${s.tradeKillsSucceeded||0} trade kills`;
     else if (award.id==="multi3k") statVal = `${s.multi3k||0} 3K round${(s.multi3k||0)!==1?'s':''}`;
     else if (award.id==="multi4k") statVal = `${(s.multi4k||0)+(s.multi5k||0)} 4K+ round${((s.multi4k||0)+(s.multi5k||0))!==1?'s':''}`;
-    else if (award.id==="ace")     statVal = s.multi5k>0?`${s.multi5k} ace${s.multi5k!==1?'s':''}`:"—";
+    else if (award.id==="ace")     statVal = (s.multi5k>0)?`${s.multi5k} ace${s.multi5k!==1?'s':''}`:"—";
     else if (award.id==="ctstrafe") statVal = s.counterRatio ? `${(s.counterRatio*100).toFixed(0)}%` : "";
     else if (award.id==="survive") statVal = `${s.roundsSurvived||0} rounds`;
     else if (award.id==="kast" || award.id==="lowkast") statVal = s.kast ? `${(s.kast*100).toFixed(0)}%` : "";
