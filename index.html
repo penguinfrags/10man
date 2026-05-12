@@ -2335,11 +2335,17 @@ function openBulkImport() {
     }
     if (bad.length) flash(`${bad.length} match(es) failed to fetch — skipped`);
 
-    openBulkMapping(ok.map(r=>r.data));
+    try {
+      openBulkMapping(ok.map(r=>r.data));
+    } catch(err) {
+      console.error("openBulkMapping error:", err);
+      flash(`Import UI error: ${err.message} — check console`);
+    }
   });
 }
 
 function openBulkMapping(matchDataList) {
+  try {
   // similarity scorer (same as single import)
   const similarity = (a, b) => {
     a = a.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -2710,6 +2716,10 @@ function openBulkMapping(matchDataList) {
     document.getElementById("import-log-close").addEventListener("click", () => logOverlay.remove());
     logOverlay.addEventListener("click", e => { if(e.target===logOverlay) logOverlay.remove(); });
   });
+  } catch(err) {
+    console.error("openBulkMapping crashed:", err);
+    flash(`Import error: ${err.message} — check console for details`);
+  }
 }
 
 // ─── Leaderboard ──────────────────────────────────────────────────────────
