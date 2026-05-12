@@ -3072,7 +3072,13 @@ function openMatchAwards(matchId) {
     const p = state.players.find(x=>x.id===id);
     if (!p) return null;
     const s = getStats(id);
-    return { id, name: p.name, ...s };
+    // Ensure kills/deaths/assists are always available from matchHistory if not in scores
+    const hist = (p.matchHistory||[]).find(h=>h.matchId===match.id)||{};
+    return { id, name: p.name, ...s,
+      kills:   s.kills   ?? hist.kills   ?? 0,
+      deaths:  s.deaths  ?? hist.deaths  ?? 0,
+      assists: s.assists ?? hist.assists ?? 0,
+    };
   }).filter(Boolean);
 
   if (players.length === 0) { flash("No player stats available for awards"); return; }
@@ -3090,7 +3096,7 @@ function openMatchAwards(matchId) {
     { id:"ctstrafe", emoji:"🕺", title:"Movement Player",    desc:"Stopping to shoot since day one",  pri:8,  val: p=>(p.counterRatio!=null&&p.counterRatio>0)?p.counterRatio:-999,    higher:true },
     { id:"damage",   emoji:"💥", title:"Walking Weapon",     desc:"Someone was cooking this match",   pri:9,  val: p=>p.damage??0,                                                     higher:true },
     { id:"flash",    emoji:"🔦", title:"Blind Faith",        desc:"Enemies saw white all game",       pri:10, val: p=>p.flashbangScore!=null?p.flashbangScore:(p.flashFoe>0?p.flashFoe:-999),         higher:true },
-    { id:"assists",  emoji:"🤲", title:"Team Effort",        desc:"Most assists",                     pri:14, val: p=>p.assists>0?p.assists:-999,                                          higher:true },
+    { id:"assists",  emoji:"🤲", title:"Team Effort",        desc:"Most assists",                     pri:14, val: p=>(p.assists??p.a??0)>0?(p.assists??p.a??0):-999,                                          higher:true },
     { id:"survive",  emoji:"🪳", title:"Cockroach",          desc:"Unkillable. Inexplicably.",         pri:13, val: p=>p.roundsSurvived??0,                                             higher:true },
     { id:"kast",     emoji:"💪", title:"Always Present",     desc:"Highest KAST%",               pri:12, val: p=>p.kast!=null?p.kast:-999,                                                      higher:true },
     { id:"mvp",      emoji:"⭐", title:"Round Winner",       desc:"Clutching when it counted",        pri:13, val: p=>p.mvps>0?p.mvps:-999,                                                       higher:true },
@@ -3136,22 +3142,34 @@ function openMatchAwards(matchId) {
   });
 
   // Step 3: each player keeps only their single BEST award
-  // Priority: good awards beat shame awards; among good awards pick highest rank
+  // Good awards beat shame awards. Bullet Sponge (deaths) is never given to
+  // someone who is the true #1 in ANY good award stat (even if that stat has no data).
   const assigned = new Map();
   const usedAwards = new Set();
+
+  // Build set of players who are true #1 in at least one good stat (even if val=-999)
+  const goodStatLeaders = new Set();
+  GOOD_AWARDS.forEach(award => {
+    const ranked = [...players].sort((a,b) => award.val(b) - award.val(a));
+    if (ranked[0] && award.val(ranked[0]) !== -999) goodStatLeaders.add(ranked[0].id);
+    // Also mark as leader if they rank #1 regardless of val (they dominate this stat)
+    if (ranked[0]) goodStatLeaders.add(ranked[0].id);
+  });
 
   players.forEach(p => {
     const wins = playerWins.get(p.id) || [];
     if (!wins.length) return;
-    // Sort: good awards first, then by the player's rank in that stat (rank 1 = best)
     const sorted = wins.sort((a,b) => {
       const aShame = SHAME_IDS.has(a.id) ? 1 : 0;
       const bShame = SHAME_IDS.has(b.id) ? 1 : 0;
-      if (aShame !== bShame) return aShame - bShame; // good before shame
-      return (a.pri||99) - (b.pri||99); // lower priority number = more prestigious
+      if (aShame !== bShame) return aShame - bShame;
+      return (a.pri||99) - (b.pri||99);
     });
-    assigned.set(p.id, sorted[0]);
-    usedAwards.add(sorted[0].id);
+    // If player's only win is Bullet Sponge but they lead any good stat, skip it
+    const best = sorted[0];
+    if (best.id === "deaths" && goodStatLeaders.has(p.id)) return;
+    assigned.set(p.id, best);
+    usedAwards.add(best.id);
   });
 
   // Step 4: first pass — give leftover awards to their true #1 if unawarded
