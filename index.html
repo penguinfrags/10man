@@ -2533,6 +2533,39 @@ function openBulkMapping(matchDataList) {
           if (lp.hltvRating != null)    state.players[idx].matchHistory[histIdx].hltvRating    = lp.hltvRating;
           if (lp.leetifyRating != null) state.players[idx].matchHistory[histIdx].leetifyRating = lp.leetifyRating;
           if (lp.damage != null)        state.players[idx].matchHistory[histIdx].damage        = lp.damage;
+          if (lp.reactionTime != null)  state.players[idx].matchHistory[histIdx].reactionTime  = lp.reactionTime;
+          if (lp.kast != null)          state.players[idx].matchHistory[histIdx].kast          = lp.kast;
+          if (lp.counterRatio != null)  state.players[idx].matchHistory[histIdx].counterRatio  = lp.counterRatio;
+          if (lp.counterAll != null)    state.players[idx].matchHistory[histIdx].counterAll    = lp.counterAll;
+          if (lp.wastedAmmo != null)    state.players[idx].matchHistory[histIdx].wastedAmmo    = lp.wastedAmmo;
+          if (lp.reloads != null)       state.players[idx].matchHistory[histIdx].reloads       = lp.reloads;
+          if (lp.flashFriend != null)   state.players[idx].matchHistory[histIdx].flashFriend   = lp.flashFriend;
+          if (lp.flashFoe != null)      state.players[idx].matchHistory[histIdx].flashFoe      = lp.flashFoe;
+          if (lp.roundsSurvived != null)state.players[idx].matchHistory[histIdx].roundsSurvived= lp.roundsSurvived;
+          if (lp.multi3k != null)       state.players[idx].matchHistory[histIdx].multi3k       = lp.multi3k;
+          if (lp.accuracy != null)      state.players[idx].matchHistory[histIdx].accuracy      = lp.accuracy;
+          if (lp.dpr != null)           state.players[idx].matchHistory[histIdx].dpr           = lp.dpr;
+          if (lp.mvps != null)          state.players[idx].matchHistory[histIdx].mvps          = lp.mvps;
+          // Also update scores entry on the match record
+          const side = existing.teams.ct.includes(pid) ? "ct" : "t";
+          if (!existing.scores[side]) existing.scores[side] = {};
+          if (!existing.scores[side][pid]) existing.scores[side][pid] = {};
+          const sc = existing.scores[side][pid];
+          if (lp.reactionTime != null)  sc.reactionTime  = lp.reactionTime;
+          if (lp.kast != null)          sc.kast          = lp.kast;
+          if (lp.counterRatio != null)  sc.counterRatio  = lp.counterRatio;
+          if (lp.wastedAmmo != null)    sc.wastedAmmo    = lp.wastedAmmo;
+          if (lp.reloads != null)       sc.reloads       = lp.reloads;
+          if (lp.flashFriend != null)   sc.flashFriend   = lp.flashFriend;
+          if (lp.flashFoe != null)      sc.flashFoe      = lp.flashFoe;
+          if (lp.roundsSurvived != null)sc.roundsSurvived= lp.roundsSurvived;
+          if (lp.multi3k != null)       sc.multi3k       = lp.multi3k;
+          if (lp.accuracy != null)      sc.accuracy      = lp.accuracy;
+          if (lp.dpr != null)           sc.dpr           = lp.dpr;
+          if (lp.mvps != null)          sc.mvps          = lp.mvps;
+          if (lp.hltvRating != null)    sc.hltvRating    = lp.hltvRating;
+          if (lp.leetifyRating != null) sc.leetifyRating = lp.leetifyRating;
+          if (lp.damage != null)        sc.damage        = lp.damage;
         }
       });
       updated++;
@@ -3056,16 +3089,18 @@ function openMatchAwards(matchId) {
 
   const rounds = match.roundScore ? (match.roundScore.ct + match.roundScore.t) : null;
 
-  const cards = players.map(p => {
+  // Split players by team
+  const ctPlayers = players.filter(p => match.teams.ct.includes(p.id));
+  const tPlayers  = players.filter(p => match.teams.t.includes(p.id));
+
+  const renderTeamCards = (teamPlayers) => teamPlayers.map(p => {
     const award = assigned.get(p.id) || { emoji:"🎮", title:"Just Vibing", desc:"Participated" };
     const s = match.scores?.[match.teams.ct.includes(p.id)?"ct":"t"]?.[p.id] || {};
     const rc = rankColor(state.players.find(x=>x.id===p.id)?.rating||5);
     const kd = s.deaths>0 ? (s.kills/s.deaths).toFixed(2) : (s.kills||0);
     const adr = rounds && s.damage ? (s.damage/rounds).toFixed(1) : null;
-
-    // Stat value display
     let statVal = "";
-    if (award.id==="damage")   statVal = `${s.damage||0} dmg`;
+    if (award.id==="damage")    statVal = `${s.damage||0} dmg`;
     else if (award.id==="hltv") statVal = s.hltvRating?.toFixed(2)||"";
     else if (award.id==="react") statVal = s.reactionTime ? `${(s.reactionTime*1000).toFixed(0)}ms` : "";
     else if (award.id==="flash") statVal = `${s.flashFoe||0} flashes`;
@@ -3073,7 +3108,7 @@ function openMatchAwards(matchId) {
     else if (award.id==="ctstrafe") statVal = s.counterRatio ? `${(s.counterRatio*100).toFixed(0)}%` : "";
     else if (award.id==="survive") statVal = `${s.roundsSurvived||0} rounds`;
     else if (award.id==="kast" || award.id==="lowkast") statVal = s.kast ? `${(s.kast*100).toFixed(0)}%` : "";
-    else if (award.id==="mvp") statVal = `${s.mvps||0} ⭐`;
+    else if (award.id==="mvp")  statVal = `${s.mvps||0} ⭐`;
     else if (award.id==="lowdmg") statVal = `${s.damage||0} dmg`;
     else if (award.id==="deaths") statVal = `${s.deaths||0} deaths`;
     else if (award.id==="ammo") statVal = `${s.wastedAmmo||0} wasted`;
@@ -3081,33 +3116,45 @@ function openMatchAwards(matchId) {
     else if (award.id==="ffriend") statVal = `${s.flashFriend||0} friendlies`;
     else if (award.id==="spray") statVal = s.accuracy ? `${(s.accuracy*100).toFixed(1)}%` : "";
     else if (award.id==="spin") statVal = s.counterRatio ? `${(s.counterRatio*100).toFixed(0)}%` : "";
-
     const funny = ["lowdmg","deaths","ammo","reload","ffriend","lowkast","spray","spin"].includes(award.id);
-
     return `
-    <div style="background:var(--bg3);border:1px solid ${funny?'#7a1f1f44':'var(--border)'};border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px">
-      <div style="font-size:32px;line-height:1">${award.emoji}</div>
-      <div style="font-size:13px;font-weight:800;color:${funny?'#fc8181':rc};letter-spacing:1px;text-transform:uppercase">${esc(award.title)}</div>
-      <div style="font-size:11px;color:var(--muted)">${esc(award.desc)}</div>
-      <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:2px">${esc(p.name)}</div>
-      <div style="font-size:12px;color:var(--muted);font-family:var(--mono)">${kd} K/D${adr?` · ${adr} ADR`:""}</div>
-      ${statVal ? `<div style="font-size:13px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${esc(statVal)}</div>` : ''}
+    <div style="background:var(--bg3);border:1px solid ${funny?'#7a1f1f44':'var(--border)'};border-radius:14px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px">
+      <div style="font-size:28px;line-height:1">${award.emoji}</div>
+      <div style="font-size:12px;font-weight:800;color:${funny?'#fc8181':rc};letter-spacing:1px;text-transform:uppercase;line-height:1.2">${esc(award.title)}</div>
+      <div style="font-size:10px;color:var(--muted);line-height:1.2">${esc(award.desc)}</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-top:2px">${esc(p.name)}</div>
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${kd} K/D${adr?` · ${adr} ADR`:""}</div>
+      ${statVal ? `<div style="font-size:12px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${esc(statVal)}</div>` : ''}
     </div>`;
   }).join('');
+
+  const winTeam = match.winner==="ct" ? ctPlayers : tPlayers;
+  const loseTeam = match.winner==="ct" ? tPlayers : ctPlayers;
+  const winLabel = teamLabel(winTeam.map(p=>state.players.find(x=>x.id===p.id)).filter(Boolean), "Team 1");
+  const loseLabel = teamLabel(loseTeam.map(p=>state.players.find(x=>x.id===p.id)).filter(Boolean), "Team 2");
 
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
-    <div class="modal-box" style="width:min(720px,95vw);max-height:90vh;overflow-y:auto">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+    <div class="modal-box" style="width:min(880px,95vw);max-height:90vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <div style="font-size:20px;font-weight:800;color:var(--text)">🏅 Match Awards</div>
         <div style="font-size:13px;color:var(--muted)">${esc(match.map)}${match.roundScore?` · ${match.roundScore.ct}:${match.roundScore.t}`:""}</div>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:18px">One award per player based on match stats</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
-        ${cards}
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#68D391;margin-bottom:10px;font-family:var(--mono)">★ ${esc(winLabel.toUpperCase())} — WIN</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px">
+        ${renderTeamCards(winTeam)}
       </div>
-      <button class="btn btn-ghost" style="width:100%;margin-top:16px" id="awards-close">Close</button>
+
+      <div style="border-top:1px solid var(--border);margin-bottom:16px"></div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">${esc(loseLabel.toUpperCase())} — LOSS</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
+        ${renderTeamCards(loseTeam)}
+      </div>
+
+      <button class="btn btn-ghost" style="width:100%" id="awards-close">Close</button>
     </div>`;
   document.body.appendChild(overlay);
   document.getElementById("awards-close").addEventListener("click", () => overlay.remove());
