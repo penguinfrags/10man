@@ -3098,8 +3098,8 @@ function openMatchAwards(matchId) {
     { id:"lowleet",  emoji:"📉", title:"Leetify Victim",     desc:"Leetify has thoughts. Not good ones.", pri:16, val: p=>p.leetifyRating!=null?-p.leetifyRating:-999,               higher:true },
     { id:"hsp",      emoji:"🎯", title:"Headhunter",          desc:"Aim for the head, always",         pri:17, val: p=>p.hsp!=null?p.hsp:-999,                                          higher:true },
     { id:"spray",    emoji:"💦", title:"Spray Artist",        desc:"Taming recoil like a pro",          pri:18, val: p=>p.sprayAccuracy!=null?p.sprayAccuracy:-999,                      higher:true },
-    { id:"ffriend",  emoji:"🤝", title:"Team Player",        desc:"Kept the team on their toes",      pri:19, val: p=>p.flashFriend??0,                                               higher:true },
-    { id:"lowkast",  emoji:"📺", title:"Spectator Mode",     desc:"In body only",                     pri:20, val: p=>p.kast!=null?-p.kast:-999,                                      higher:true },
+    { id:"ffriend",  emoji:"🤝", title:"Team Player",        desc:"Most team flashes",                pri:19, val: p=>p.flashFriend>0?p.flashFriend:-999,                                               higher:true },
+    { id:"lowkast",  emoji:"📺", title:"Spectator Mode",     desc:"Lowest KAST%",                     pri:20, val: p=>p.kast!=null?-p.kast:-999,                                      higher:true },
     { id:"utility",  emoji:"🎒", title:"Hoarder",             desc:"Died with a full utility belt",    pri:21, val: p=>p.utilityOnDeath!=null?p.utilityOnDeath:-999,                   higher:true },
     { id:"spin",     emoji:"🌀", title:"Spinning Top",       desc:"Shooting mid-strafe, always",      pri:22, val: p=>(p.counterRatio!=null&&p.counterRatio>0)?-p.counterRatio:-999,   higher:true },
   ];
@@ -3175,11 +3175,13 @@ function openMatchAwards(matchId) {
       assigned.set(p.id, { emoji:"🎮", title:"Just Vibing", desc:"Showed up and played" });
       return;
     }
-    let bestAward = stillLeftover[0], bestRank = Infinity;
+    let bestAward = null, bestRank = Infinity;
     stillLeftover.forEach(award => {
+      if (award.val(p) === -999) return; // skip awards this player has no valid stat for
       const rank = [...players].sort((a,b) => award.val(b) - award.val(a)).findIndex(x=>x.id===p.id);
       if (rank < bestRank) { bestRank = rank; bestAward = award; }
     });
+    if (!bestAward) bestAward = { emoji:"🎮", title:"Just Vibing", desc:"Showed up and played" };
     assigned.set(p.id, bestAward);
     stillLeftover.splice(stillLeftover.indexOf(bestAward), 1);
     usedAwards.add(bestAward.id);
@@ -3212,7 +3214,7 @@ function openMatchAwards(matchId) {
     else if (award.id==="trade") statVal = `${s.tradeKillsSucceeded||0} trade kills`;
     else if (award.id==="multi3k") statVal = `${s.multi3k||0} 3K round${(s.multi3k||0)!==1?'s':''}`;
     else if (award.id==="multi4k") statVal = `${(s.multi4k||0)+(s.multi5k||0)} 4K+ round${((s.multi4k||0)+(s.multi5k||0))!==1?'s':''}`;
-    else if (award.id==="ace")     statVal = `${s.multi5k||0} ace${(s.multi5k||0)!==1?'s':''}`;
+    else if (award.id==="ace")     statVal = s.multi5k>0?`${s.multi5k} ace${s.multi5k!==1?'s':''}`:"—";
     else if (award.id==="ctstrafe") statVal = s.counterRatio ? `${(s.counterRatio*100).toFixed(0)}%` : "";
     else if (award.id==="survive") statVal = `${s.roundsSurvived||0} rounds`;
     else if (award.id==="kast" || award.id==="lowkast") statVal = s.kast ? `${(s.kast*100).toFixed(0)}%` : "";
