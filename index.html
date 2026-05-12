@@ -3052,44 +3052,53 @@ function openMatchAwards(matchId) {
     { id:"spin",     emoji:"🌀", title:"Spinning Top",     desc:"Worst counter-strafe ratio", val: p=>p.counterRatio!=null?-p.counterRatio:-999, higher:true  },
   ];
 
-  // Assign awards — find true winner for each award first
-  // then do a second pass to ensure every player has at least one award
-  const assigned = new Map(); // playerId -> award (player may get reassigned to better match)
+  // Separate good and shame awards
+  const GOOD_AWARDS = AWARDS.filter(a => !["lowdmg","deaths","ammo","reload","ffriend","lowkast","spray","spin"].includes(a.id));
+  const SHAME_AWARDS = AWARDS.filter(a => ["lowdmg","deaths","ammo","reload","ffriend","lowkast","spray","spin"].includes(a.id));
+
+  const assigned = new Map();
   const usedAwards = new Set();
 
-  // First pass: assign each award to its true winner (best stat), skip if value is 0/-999
-  AWARDS.forEach(award => {
+  // Pass 1: assign GOOD awards to their true server-wide winner
+  GOOD_AWARDS.forEach(award => {
     const ranked = [...players].sort((a,b) => award.val(b) - award.val(a));
-    const winner = ranked[0];
+    const winner = ranked.find(p => !assigned.has(p.id));
     if (!winner) return;
     const winVal = award.val(winner);
-    if (winVal === -999) return; // no valid data
-    if (!['lowdmg','lowkast','spray','spin','ffriend','deaths','ammo','reload'].includes(award.id) && winVal === 0) return;
-    // Assign — winner may already have an award, that's ok, we'll deduplicate after
-    if (!assigned.has(winner.id)) {
-      assigned.set(winner.id, award);
-      usedAwards.add(award.id);
-    }
+    if (winVal === -999 || winVal === 0) return;
+    assigned.set(winner.id, award);
+    usedAwards.add(award.id);
   });
 
-  // Second pass: any player without award gets the next available award they rank highest in
+  // Pass 2: assign SHAME awards to server-wide worst, but NOT to someone who already has a good award
+  SHAME_AWARDS.forEach(award => {
+    const ranked = [...players].sort((a,b) => award.val(b) - award.val(a));
+    // Prefer someone without an award; fall back to someone with a shame award already
+    const winner = ranked.find(p => !assigned.has(p.id)) || ranked.find(p => {
+      const existing = assigned.get(p.id);
+      return existing && ["lowdmg","deaths","ammo","reload","ffriend","lowkast","spray","spin"].includes(existing.id);
+    });
+    if (!winner) return;
+    const winVal = award.val(winner);
+    if (winVal === -999) return;
+    assigned.set(winner.id, award);
+    usedAwards.add(award.id);
+  });
+
+  // Pass 3: any player still without award — give them the remaining award they rank best in
   players.forEach(p => {
     if (assigned.has(p.id)) return;
-    // Find the award where this player ranks best among remaining awards
-    const remaining = AWARDS.filter(a => !usedAwards.has(a.id));
+    const remaining = [...GOOD_AWARDS, ...SHAME_AWARDS].filter(a => !usedAwards.has(a.id));
     if (!remaining.length) {
-      // All awards used — just give them a fallback
       assigned.set(p.id, { emoji:"🎮", title:"Just Vibing", desc:"Participated" });
       return;
     }
-    // Pick the award where this player scores highest relative to others
     let bestAward = remaining[0];
-    let bestRelScore = -Infinity;
+    let bestRank = Infinity;
     remaining.forEach(award => {
       const ranked = [...players].sort((a,b) => award.val(b) - award.val(a));
       const rank = ranked.findIndex(x=>x.id===p.id);
-      const relScore = players.length - rank;
-      if (relScore > bestRelScore) { bestRelScore = relScore; bestAward = award; }
+      if (rank < bestRank) { bestRank = rank; bestAward = award; }
     });
     assigned.set(p.id, bestAward);
     usedAwards.add(bestAward.id);
