@@ -1712,6 +1712,9 @@ function openLeetifyMapping(data) {
     const flashbangScore  = s.flashbangScore  ?? null;
     const utilityOnDeath  = s.utilityOnDeathAvg ?? null;
     const sprayAccuracy   = s.sprayAccuracy   ?? null;
+    const heDmg           = s.heFoesDamageAvg ?? null;
+    const molotovDmg      = s.molotovFoesDamageAvg ?? null;
+    const utilityDmg      = (heDmg != null || molotovDmg != null) ? (heDmg??0) + (molotovDmg??0) : null;
     // initialTeamNumber: 3 = CT, 2 = T (Valve/CS2 convention)
     const teamNum = s.initialTeamNumber ?? s.teamNumber ?? s.team_number ?? null;
     const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
@@ -1731,7 +1734,7 @@ function openLeetifyMapping(data) {
         if (score > bestScore) { bestScore = score; bestId = p.id; }
       });
     }
-    return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, hsp, flashbangScore, utilityOnDeath, sprayAccuracy, side, suggestedId: bestId };
+    return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, hsp, flashbangScore, utilityOnDeath, sprayAccuracy, utilityDmg, side, suggestedId: bestId };
   });
 
   const overlay = document.createElement("div");
@@ -1917,7 +1920,7 @@ function finalizeMatch(winner) {
       // rating stays untouched
       state.players[idx].matchHistory = [
         ...(state.players[idx].matchHistory||[]),
-        { matchId:match.id, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, hsp:s.hsp, flashbangScore:s.flashbangScore, utilityOnDeath:s.utilityOnDeath, sprayAccuracy:s.sprayAccuracy, eloDelta }
+        { matchId:match.id, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, hsp:s.hsp, flashbangScore:s.flashbangScore, utilityOnDeath:s.utilityOnDeath, sprayAccuracy:s.sprayAccuracy, utilityDmg:s.utilityDmg, eloDelta }
       ];
     }
   });
@@ -2444,12 +2447,15 @@ function openBulkMapping(matchDataList) {
       const flashbangScore  = s.flashbangScore  ?? null;
       const utilityOnDeath  = s.utilityOnDeathAvg ?? null;
       const sprayAccuracy   = s.sprayAccuracy   ?? null;
+      const heDmg           = s.heFoesDamageAvg ?? null;
+      const molotovDmg      = s.molotovFoesDamageAvg ?? null;
+      const utilityDmg      = (heDmg != null || molotovDmg != null) ? (heDmg??0) + (molotovDmg??0) : null;
       // initialTeamNumber: 3 = CT, 2 = T (confirmed from Leetify API)
       const teamNum = s.initialTeamNumber ?? s.teamNumber ?? s.team_number ?? null;
       const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
       console.log("[Leetify bulk] player", name, "initialTeamNumber:", teamNum, "->", side);
       const steam64 = s.steam64Id || s.steam_64_id || null;
-      return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, hsp, flashbangScore, utilityOnDeath, sprayAccuracy, teamNum, side, suggestedId: findBestPlayer(name, steam64) };
+      return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, hsp, flashbangScore, utilityOnDeath, sprayAccuracy, utilityDmg, teamNum, side, suggestedId: findBestPlayer(name, steam64) };
     });
     // Derive round score: each team's total rounds won
     const team2p = ps2.find ? ps2.find(s=>(s.initialTeamNumber??s.teamNumber)===2) : null;
@@ -2595,6 +2601,7 @@ function openBulkMapping(matchDataList) {
           if (lp.flashbangScore != null)state.players[idx].matchHistory[histIdx].flashbangScore= lp.flashbangScore;
           if (lp.utilityOnDeath != null)state.players[idx].matchHistory[histIdx].utilityOnDeath= lp.utilityOnDeath;
           if (lp.sprayAccuracy != null) state.players[idx].matchHistory[histIdx].sprayAccuracy = lp.sprayAccuracy;
+          if (lp.utilityDmg != null)   state.players[idx].matchHistory[histIdx].utilityDmg   = lp.utilityDmg;
           // Also update scores entry on the match record
           const side = existing.teams.ct.includes(pid) ? "ct" : "t";
           if (!existing.scores[side]) existing.scores[side] = {};
@@ -2619,6 +2626,7 @@ function openBulkMapping(matchDataList) {
           if (lp.flashbangScore != null)     sc.flashbangScore        = lp.flashbangScore;
           if (lp.utilityOnDeath != null)     sc.utilityOnDeath        = lp.utilityOnDeath;
           if (lp.sprayAccuracy != null)      sc.sprayAccuracy         = lp.sprayAccuracy;
+          if (lp.utilityDmg != null)         sc.utilityDmg            = lp.utilityDmg;
           if (lp.hltvRating != null)    sc.hltvRating    = lp.hltvRating;
           if (lp.leetifyRating != null) sc.leetifyRating = lp.leetifyRating;
           if (lp.damage != null)        sc.damage        = lp.damage;
@@ -2696,7 +2704,7 @@ function openBulkMapping(matchDataList) {
             // rating stays untouched
             state.players[idx].matchHistory = [
               ...(state.players[idx].matchHistory||[]),
-              { matchId, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, hsp:s.hsp, flashbangScore:s.flashbangScore, utilityOnDeath:s.utilityOnDeath, sprayAccuracy:s.sprayAccuracy, eloDelta }
+              { matchId, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, hsp:s.hsp, flashbangScore:s.flashbangScore, utilityOnDeath:s.utilityOnDeath, sprayAccuracy:s.sprayAccuracy, utilityDmg:s.utilityDmg, eloDelta }
             ];
           }
         });
@@ -3120,6 +3128,7 @@ function openMatchAwards(matchId) {
     { id:"deaths",   emoji:"💀", title:"Bullet Sponge",      desc:"Absorbing enemy attention",   pri:23, val: p=>p.deaths>0?p.deaths:-999,                                                     higher:true },
     { id:"lowleet",  emoji:"📉", title:"Leetify Victim",     desc:"Leetify has thoughts. Not good ones.", pri:16, val: p=>p.leetifyRating!=null?-p.leetifyRating:-999,               higher:true },
     { id:"hsp",      emoji:"🎯", title:"Headhunter",          desc:"Aim for the head, always",         pri:17, val: p=>p.hsp!=null?p.hsp:-999,                                          higher:true },
+    { id:"utility_dmg", emoji:"💥", title:"Utility King",      desc:"Highest utility damage",           pri:15, val: p=>p.utilityDmg!=null&&p.utilityDmg>0?p.utilityDmg:-999,               higher:true },
     { id:"spray",    emoji:"💦", title:"Spray Artist",        desc:"Highest spray accuracy",            pri:18, val: p=>p.sprayAccuracy!=null?p.sprayAccuracy:-999,                      higher:true },
     { id:"ffriend",  emoji:"😵", title:"Sorry Guys",          desc:"Most team flashes",                pri:19, val: p=>p.flashFriend>0?p.flashFriend:-999,                                               higher:true },
     { id:"lowkast",  emoji:"📺", title:"Spectator Mode",     desc:"Lowest KAST%",                     pri:20, val: p=>p.kast!=null?-p.kast:-999,                                      higher:true },
@@ -3241,6 +3250,7 @@ function openMatchAwards(matchId) {
     else if (award.id==="hsp")       statVal = s.hsp!=null?`${(s.hsp*100).toFixed(0)}% HS`:""
     else if (award.id==="assists")  statVal = `${s.assists||0} assists`;
     else if (award.id==="spray")     statVal = s.sprayAccuracy!=null?`${(s.sprayAccuracy*100).toFixed(0)}% spray acc`:"";
+    else if (award.id==="utility_dmg") statVal = s.utilityDmg!=null?`${s.utilityDmg.toFixed(1)} avg util dmg`:"";
     else if (award.id==="utility")   statVal = s.utilityOnDeath!=null?`$${s.utilityOnDeath.toFixed(0)} avg utility`:"";
     else if (award.id==="flash")     statVal = s.flashbangScore!=null?`${s.flashbangScore.toFixed(2)} score`:(s.flashFoe!=null?`${s.flashFoe} flashes`:"");
     else if (award.id==="leetify") statVal = s.leetifyRating!=null?`${(s.leetifyRating*100)>=0?"+":""}${(s.leetifyRating*100).toFixed(2)}`:"";
