@@ -3128,7 +3128,7 @@ function openMatchAwards(matchId) {
     { id:"deaths",   emoji:"💀", title:"Bullet Sponge",      desc:"Absorbing enemy attention",   pri:23, val: p=>p.deaths>0?p.deaths:-999,                                                     higher:true },
     { id:"lowleet",  emoji:"📉", title:"Leetify Victim",     desc:"Leetify has thoughts. Not good ones.", pri:16, val: p=>p.leetifyRating!=null?-p.leetifyRating:-999,               higher:true },
     { id:"hsp",      emoji:"🎯", title:"Headhunter",          desc:"Aim for the head, always",         pri:17, val: p=>p.hsp!=null?p.hsp:-999,                                          higher:true },
-    { id:"utility_dmg", emoji:"💥", title:"Utility King",      desc:"Highest utility damage",           pri:15, val: p=>p.utilityDmg!=null&&p.utilityDmg>0?p.utilityDmg:-999,               higher:true },
+    { id:"utility_dmg", emoji:"🧨", title:"Utility King",      desc:"Highest utility damage",           pri:15, val: p=>p.utilityDmg!=null&&p.utilityDmg>0?p.utilityDmg:-999,               higher:true },
     { id:"spray",    emoji:"💦", title:"Spray Artist",        desc:"Highest spray accuracy",            pri:18, val: p=>p.sprayAccuracy!=null?p.sprayAccuracy:-999,                      higher:true },
     { id:"ffriend",  emoji:"😵", title:"Sorry Guys",          desc:"Most team flashes",                pri:19, val: p=>p.flashFriend>0?p.flashFriend:-999,                                               higher:true },
     { id:"lowkast",  emoji:"📺", title:"Spectator Mode",     desc:"Lowest KAST%",                     pri:20, val: p=>p.kast!=null?-p.kast:-999,                                      higher:true },
