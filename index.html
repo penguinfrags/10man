@@ -1724,7 +1724,7 @@ function openLeetifyMapping(data) {
         if (score > bestScore) { bestScore = score; bestId = p.id; }
       });
     }
-    return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, accuracy, dpr, mvps, side, suggestedId: bestId };
+    return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, side, suggestedId: bestId };
   });
 
   const overlay = document.createElement("div");
@@ -1910,7 +1910,7 @@ function finalizeMatch(winner) {
       // rating stays untouched
       state.players[idx].matchHistory = [
         ...(state.players[idx].matchHistory||[]),
-        { matchId:match.id, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, eloDelta }
+        { matchId:match.id, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, eloDelta }
       ];
     }
   });
@@ -2413,7 +2413,7 @@ function openBulkMapping(matchDataList) {
       const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
       console.log("[Leetify bulk] player", name, "initialTeamNumber:", teamNum, "->", side);
       const steam64 = s.steam64Id || s.steam_64_id || null;
-      return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, accuracy, dpr, mvps, teamNum, side, suggestedId: findBestPlayer(name, steam64) };
+      return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, teamNum, side, suggestedId: findBestPlayer(name, steam64) };
     });
     // Derive round score: each team's total rounds won
     const team2p = ps2.find ? ps2.find(s=>(s.initialTeamNumber??s.teamNumber)===2) : null;
@@ -2560,9 +2560,12 @@ function openBulkMapping(matchDataList) {
           if (lp.flashFoe != null)      sc.flashFoe      = lp.flashFoe;
           if (lp.roundsSurvived != null)sc.roundsSurvived= lp.roundsSurvived;
           if (lp.multi3k != null)       sc.multi3k       = lp.multi3k;
-          if (lp.accuracy != null)      sc.accuracy      = lp.accuracy;
-          if (lp.dpr != null)           sc.dpr           = lp.dpr;
-          if (lp.mvps != null)          sc.mvps          = lp.mvps;
+          if (lp.accuracy != null)           sc.accuracy             = lp.accuracy;
+          if (lp.dpr != null)                sc.dpr                  = lp.dpr;
+          if (lp.mvps != null)               sc.mvps                 = lp.mvps;
+          if (lp.multi4k != null)            sc.multi4k              = lp.multi4k;
+          if (lp.multi5k != null)            sc.multi5k              = lp.multi5k;
+          if (lp.tradeKillsSucceeded != null)sc.tradeKillsSucceeded  = lp.tradeKillsSucceeded;
           if (lp.hltvRating != null)    sc.hltvRating    = lp.hltvRating;
           if (lp.leetifyRating != null) sc.leetifyRating = lp.leetifyRating;
           if (lp.damage != null)        sc.damage        = lp.damage;
@@ -2640,7 +2643,7 @@ function openBulkMapping(matchDataList) {
             // rating stays untouched
             state.players[idx].matchHistory = [
               ...(state.players[idx].matchHistory||[]),
-              { matchId, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, eloDelta }
+              { matchId, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, eloDelta }
             ];
           }
         });
@@ -3036,9 +3039,11 @@ function openMatchAwards(matchId) {
     { id:"hltv",     emoji:"🏆", title:"Certified Fragger",desc:"Best HLTV Rating",           val: p=>p.hltvRating??0,                           higher:true  },
     { id:"react",    emoji:"⚡", title:"Stim Abuser",      desc:"Fastest reaction time",      val: p=>p.reactionTime!=null?-p.reactionTime:-999, higher:true  },
     { id:"flash",    emoji:"🔦", title:"Blind Faith",      desc:"Most enemies flashed",       val: p=>p.flashFoe??0,                             higher:true  },
-    { id:"trade",    emoji:"⚔️", title:"Eye for an Eye",   desc:"Most trade kills",           val: p=>p.multi3k??0,                              higher:true  },
-    { id:"multi",    emoji:"🎯", title:"Highlight Reel",   desc:"Most 3K+ rounds",            val: p=>p.multi3k??0,                              higher:true  },
-    { id:"ctstrafe", emoji:"🎖️", title:"Textbook",         desc:"Best counter-strafe ratio",  val: p=>p.counterRatio??0,                         higher:true  },
+    { id:"trade",    emoji:"⚔️", title:"Eye for an Eye",   desc:"Most trade kills",           val: p=>p.tradeKillsSucceeded??0,                  higher:true  },
+    { id:"multi3k",  emoji:"🎯", title:"Highlight Reel",   desc:"Most 3K rounds",             val: p=>(p.multi3k??0)+(p.multi4k??0)+(p.multi5k??0), higher:true },
+    { id:"multi4k",  emoji:"💣", title:"Quad Kill",        desc:"Most 4K rounds",             val: p=>(p.multi4k??0)+(p.multi5k??0),             higher:true  },
+    { id:"ace",      emoji:"🃏", title:"Ace!",             desc:"Got an Ace (5K)",             val: p=>p.multi5k??0,                              higher:true  },
+    { id:"ctstrafe", emoji:"🎖️", title:"Textbook",         desc:"Best counter-strafe ratio",  val: p=>(p.counterRatio!=null&&p.counterRatio>0)?p.counterRatio:-999, higher:true  },
     { id:"survive",  emoji:"🪳", title:"Cockroach",        desc:"Most rounds survived",       val: p=>p.roundsSurvived??0,                       higher:true  },
     { id:"kast",     emoji:"💪", title:"Always Present",   desc:"Highest KAST %",             val: p=>p.kast??0,                                 higher:true  },
     { id:"mvp",      emoji:"⭐", title:"MVP",              desc:"Most MVP stars",             val: p=>p.mvps??0,                                 higher:true  },
@@ -3049,7 +3054,7 @@ function openMatchAwards(matchId) {
     { id:"ffriend",  emoji:"🤝", title:"Team Player",      desc:"Most teammates flashed",     val: p=>p.flashFriend??0,                          higher:true  },
     { id:"lowkast",  emoji:"📺", title:"Spectator Mode",   desc:"Lowest KAST %",              val: p=>p.kast!=null?-p.kast:-999,                 higher:true  },
     { id:"spray",    emoji:"🌫️", title:"Close Enough",     desc:"Lowest accuracy",            val: p=>p.accuracy!=null?-p.accuracy:-999,         higher:true  },
-    { id:"spin",     emoji:"🌀", title:"Spinning Top",     desc:"Worst counter-strafe ratio", val: p=>p.counterRatio!=null?-p.counterRatio:-999, higher:true  },
+    { id:"spin",     emoji:"🌀", title:"Spinning Top",     desc:"Worst counter-strafe ratio", val: p=>(p.counterRatio!=null&&p.counterRatio>0)?-p.counterRatio:-999, higher:true  },
   ];
 
   // Separate good and shame awards
@@ -3121,7 +3126,10 @@ function openMatchAwards(matchId) {
     else if (award.id==="hltv") statVal = s.hltvRating?.toFixed(2)||"";
     else if (award.id==="react") statVal = s.reactionTime ? `${(s.reactionTime*1000).toFixed(0)}ms` : "";
     else if (award.id==="flash") statVal = `${s.flashFoe||0} flashes`;
-    else if (award.id==="multi" || award.id==="trade") statVal = `${s.multi3k||0} multi-kills`;
+    else if (award.id==="trade") statVal = `${s.tradeKillsSucceeded||0} trade kills`;
+    else if (award.id==="multi3k") statVal = `${s.multi3k||0} 3K round${(s.multi3k||0)!==1?'s':''}`;
+    else if (award.id==="multi4k") statVal = `${(s.multi4k||0)+(s.multi5k||0)} 4K+ round${((s.multi4k||0)+(s.multi5k||0))!==1?'s':''}`;
+    else if (award.id==="ace")     statVal = `${s.multi5k||0} ace${(s.multi5k||0)!==1?'s':''}`;
     else if (award.id==="ctstrafe") statVal = s.counterRatio ? `${(s.counterRatio*100).toFixed(0)}%` : "";
     else if (award.id==="survive") statVal = `${s.roundsSurvived||0} rounds`;
     else if (award.id==="kast" || award.id==="lowkast") statVal = s.kast ? `${(s.kast*100).toFixed(0)}%` : "";
