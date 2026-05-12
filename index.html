@@ -1702,6 +1702,7 @@ function openLeetifyMapping(data) {
     const flashFoe        = s.flashbangHitFoe ?? 0;
     const roundsSurvived  = s.roundsSurvived  ?? 0;
     const multi3k         = s.multi3k         ?? 0;
+    const multi2k         = s.multi2k         ?? 0;
     const multi4k         = s.multi4k         ?? 0;
     const multi5k         = s.multi5k         ?? 0;
     const tradeKillsSucceeded = s.tradeKillsSucceeded ?? 0;
@@ -1734,7 +1735,7 @@ function openLeetifyMapping(data) {
         if (score > bestScore) { bestScore = score; bestId = p.id; }
       });
     }
-    return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, hsp, flashbangScore, utilityOnDeath, sprayAccuracy, utilityDmg, side, suggestedId: bestId };
+    return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi2k, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, hsp, flashbangScore, utilityOnDeath, sprayAccuracy, utilityDmg, side, suggestedId: bestId };
   });
 
   const overlay = document.createElement("div");
@@ -1920,7 +1921,7 @@ function finalizeMatch(winner) {
       // rating stays untouched
       state.players[idx].matchHistory = [
         ...(state.players[idx].matchHistory||[]),
-        { matchId:match.id, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, hsp:s.hsp, flashbangScore:s.flashbangScore, utilityOnDeath:s.utilityOnDeath, sprayAccuracy:s.sprayAccuracy, utilityDmg:s.utilityDmg, eloDelta }
+        { matchId:match.id, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi2k:s.multi2k, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, hsp:s.hsp, flashbangScore:s.flashbangScore, utilityOnDeath:s.utilityOnDeath, sprayAccuracy:s.sprayAccuracy, utilityDmg:s.utilityDmg, eloDelta }
       ];
     }
   });
@@ -2296,7 +2297,7 @@ function openBulkImport() {
   overlay.className = "modal-overlay";
   overlay.id = "bulk-overlay";
   overlay.innerHTML = `
-    <div class="modal-box" style="width:min(560px,95vw)">
+    <div class="modal-box" style="width:min(780px,95vw)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f84982" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
         <h3 style="color:var(--text);font-size:16px">Import Past Matches from Leetify</h3>
@@ -2304,8 +2305,8 @@ function openBulkImport() {
       <p style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.6">
         Paste one Leetify match URL per line. Each match will be fetched, players auto-matched to your roster by name and aliases, and you can confirm or adjust each before saving.
       </p>
-      <textarea id="bulk-urls" rows="6" placeholder="https://leetify.com/app/match-details/xxxxxxxx-.../overview&#10;https://leetify.com/app/match-details/yyyyyyyy-.../overview"
-        style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px;color:var(--text);font-family:var(--mono);font-size:12px;resize:vertical;margin-bottom:12px"></textarea>
+      <textarea id="bulk-urls" rows="8" placeholder="https://leetify.com/app/match-details/xxxxxxxx-.../overview&#10;https://leetify.com/app/match-details/yyyyyyyy-.../overview"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px;color:var(--text);font-family:var(--mono);font-size:13px;resize:vertical;margin-bottom:12px;white-space:nowrap;overflow-x:auto"></textarea>
       <div id="bulk-status" style="font-size:12px;color:var(--muted);min-height:18px;margin-bottom:12px"></div>
       <div style="display:flex;gap:10px">
         <button class="btn btn-ghost" id="bulk-cancel">Cancel</button>
@@ -2437,6 +2438,7 @@ function openBulkMapping(matchDataList) {
       const flashFoe        = s.flashbangHitFoe ?? 0;
       const roundsSurvived  = s.roundsSurvived  ?? 0;
       const multi3k         = s.multi3k         ?? 0;
+      const multi2k         = s.multi2k         ?? 0;
       const multi4k         = s.multi4k         ?? 0;
       const multi5k         = s.multi5k         ?? 0;
       const tradeKillsSucceeded = s.tradeKillsSucceeded ?? 0;
@@ -2455,7 +2457,7 @@ function openBulkMapping(matchDataList) {
       const side    = teamNum === 2 ? "ct" : teamNum === 3 ? "t" : null;
       console.log("[Leetify bulk] player", name, "initialTeamNumber:", teamNum, "->", side);
       const steam64 = s.steam64Id || s.steam_64_id || null;
-      return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, hsp, flashbangScore, utilityOnDeath, sprayAccuracy, utilityDmg, teamNum, side, suggestedId: findBestPlayer(name, steam64) };
+      return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi2k, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, hsp, flashbangScore, utilityOnDeath, sprayAccuracy, utilityDmg, teamNum, side, suggestedId: findBestPlayer(name, steam64) };
     });
     // Derive round score: each team's total rounds won
     const team2p = ps2.find ? ps2.find(s=>(s.initialTeamNumber??s.teamNumber)===2) : null;
@@ -2594,6 +2596,7 @@ function openBulkMapping(matchDataList) {
           if (lp.accuracy != null)      state.players[idx].matchHistory[histIdx].accuracy      = lp.accuracy;
           if (lp.dpr != null)           state.players[idx].matchHistory[histIdx].dpr           = lp.dpr;
           if (lp.mvps != null)          state.players[idx].matchHistory[histIdx].mvps          = lp.mvps;
+          if (lp.multi2k != null)       state.players[idx].matchHistory[histIdx].multi2k       = lp.multi2k;
           if (lp.multi4k != null)       state.players[idx].matchHistory[histIdx].multi4k       = lp.multi4k;
           if (lp.multi5k != null)       state.players[idx].matchHistory[histIdx].multi5k       = lp.multi5k;
           if (lp.tradeKillsSucceeded != null) state.players[idx].matchHistory[histIdx].tradeKillsSucceeded = lp.tradeKillsSucceeded;
@@ -2619,6 +2622,7 @@ function openBulkMapping(matchDataList) {
           if (lp.accuracy != null)           sc.accuracy             = lp.accuracy;
           if (lp.dpr != null)                sc.dpr                  = lp.dpr;
           if (lp.mvps != null)               sc.mvps                 = lp.mvps;
+          if (lp.multi2k != null)            sc.multi2k              = lp.multi2k;
           if (lp.multi4k != null)            sc.multi4k              = lp.multi4k;
           if (lp.multi5k != null)            sc.multi5k              = lp.multi5k;
           if (lp.tradeKillsSucceeded != null)sc.tradeKillsSucceeded  = lp.tradeKillsSucceeded;
@@ -2704,7 +2708,7 @@ function openBulkMapping(matchDataList) {
             // rating stays untouched
             state.players[idx].matchHistory = [
               ...(state.players[idx].matchHistory||[]),
-              { matchId, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, hsp:s.hsp, flashbangScore:s.flashbangScore, utilityOnDeath:s.utilityOnDeath, sprayAccuracy:s.sprayAccuracy, utilityDmg:s.utilityDmg, eloDelta }
+              { matchId, won, kills:s.kills, deaths:s.deaths, assists:s.assists, damage:s.damage||0, leetifyRating:s.leetifyRating??null, hltvRating:s.hltvRating??null, reactionTime:s.reactionTime, kast:s.kast, counterRatio:s.counterRatio, counterAll:s.counterAll, wastedAmmo:s.wastedAmmo, reloads:s.reloads, flashFriend:s.flashFriend, flashFoe:s.flashFoe, roundsSurvived:s.roundsSurvived, multi2k:s.multi2k, multi3k:s.multi3k, multi4k:s.multi4k, multi5k:s.multi5k, tradeKillsSucceeded:s.tradeKillsSucceeded, accuracy:s.accuracy, dpr:s.dpr, mvps:s.mvps, hsp:s.hsp, flashbangScore:s.flashbangScore, utilityOnDeath:s.utilityOnDeath, sprayAccuracy:s.sprayAccuracy, utilityDmg:s.utilityDmg, eloDelta }
             ];
           }
         });
@@ -3115,7 +3119,8 @@ function openMatchAwards(matchId) {
     { id:"react",    emoji:"⚡", title:"Stim Abuser",        desc:"Already clicking before you peek", pri:3,  val: p=>p.reactionTime!=null?-p.reactionTime:-999,                       higher:true },
     { id:"multi4k",  emoji:"💣", title:"Quad Kill",          desc:"Four down, one spared",            pri:4,  val: p=>((p.multi4k??0)+(p.multi5k??0))>0?(p.multi4k??0)+(p.multi5k??0):-999,  higher:true },
     { id:"leetify",  emoji:"📈", title:"Leetify Legend",     desc:"Leetify says you cooked",          pri:5,  val: p=>p.leetifyRating??-99,                                            higher:true },
-    { id:"multi3k",  emoji:"🎯", title:"Highlight Reel",     desc:"Dropping multis like it's easy",   pri:6,  val: p=>p.multi3k>0?p.multi3k:-999,                                                    higher:true },
+    { id:"multi2k",  emoji:"🥊", title:"Double Tap",         desc:"Most 2K rounds",                   pri:7,  val: p=>p.multi2k>0?p.multi2k:-999,                                                    higher:true },
+    { id:"multi3k",  emoji:"🎩", title:"Hat Trick",          desc:"Dropping multis like it's easy",   pri:6,  val: p=>p.multi3k>0?p.multi3k:-999,                                                    higher:true },
     { id:"trade",    emoji:"⚔️", title:"Eye for an Eye",     desc:"You kill mine, I kill yours",      pri:7,  val: p=>p.tradeKillsSucceeded>0?p.tradeKillsSucceeded:-999,                                        higher:true },
     { id:"ctstrafe", emoji:"🕺", title:"Movement Player",    desc:"Stopping to shoot since day one",  pri:8,  val: p=>(p.counterRatio!=null&&p.counterRatio>0)?p.counterRatio:-999,    higher:true },
     { id:"damage",   emoji:"💥", title:"Walking Weapon",     desc:"Someone was cooking this match",   pri:9,  val: p=>p.damage??0,                                                     higher:true },
@@ -3258,6 +3263,7 @@ function openMatchAwards(matchId) {
     else if (award.id==="react") statVal = s.reactionTime ? `${(s.reactionTime*1000).toFixed(0)}ms` : "";
     else if (award.id==="flash") statVal = `${s.flashFoe||0} flashes`;
     else if (award.id==="trade") statVal = `${s.tradeKillsSucceeded||0} trade kills`;
+    else if (award.id==="multi2k") statVal = `${s.multi2k||0} 2K round${(s.multi2k||0)!==1?'s':''}` ;
     else if (award.id==="multi3k") statVal = `${s.multi3k||0} 3K round${(s.multi3k||0)!==1?'s':''}`;
     else if (award.id==="multi4k") statVal = `${(s.multi4k||0)+(s.multi5k||0)} 4K+ round${((s.multi4k||0)+(s.multi5k||0))!==1?'s':''}`;
     else if (award.id==="ace")     statVal = (s.multi5k>0)?`${s.multi5k} ace${s.multi5k!==1?'s':''}`:"—";
