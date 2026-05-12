@@ -1730,25 +1730,6 @@ function openLeetifyMapping(data) {
     return { name, steam64, kills, deaths, assists, damage, leetifyRating, hltvRating, reactionTime, kast, counterRatio, counterAll, wastedAmmo, reloads, flashFriend, flashFoe, roundsSurvived, multi3k, multi4k, multi5k, tradeKillsSucceeded, accuracy, dpr, mvps, side, suggestedId: bestId };
   });
 
-  // Build debug table data (admin only)
-  const debugAwards = [...GOOD_AWARDS, ...SHAME_AWARDS];
-  const debugRows = players.map(p => {
-    const award = assigned.get(p.id);
-    const cells = debugAwards.map(a => {
-      const ranked = [...players].sort((x,y) => a.val(y) - a.val(x));
-      const rank = ranked.findIndex(x=>x.id===p.id) + 1;
-      const val = a.val(p);
-      const isAssigned = award?.id === a.id;
-      const valDisplay = val === -999 ? "—" : Math.abs(val) < 1 ? val.toFixed(2) : Math.round(val);
-      return `<td style="text-align:center;padding:4px 6px;background:${isAssigned?'#1a3a1a':'transparent'};color:${rank===1?'#68D391':rank<=3?'var(--text)':'var(--muted)'};border:1px solid var(--border)">${rank}${isAssigned?'★':''}<br><span style="font-size:9px;color:var(--muted)">${valDisplay}</span></td>`;
-    }).join('');
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:4px 8px;color:var(--text);white-space:nowrap">${esc(p.name)}</td>
-      ${cells}
-      <td style="padding:4px 8px;color:#68D391">${award?.emoji||''} ${esc(award?.title||'—')}</td>
-    </tr>`;
-  }).join('');
-
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
@@ -1848,25 +1829,6 @@ function openStatModal(side) {
           </div>`).join('')}
       </div>
     </div>`;
-  }).join('');
-
-  // Build debug table data (admin only)
-  const debugAwards = [...GOOD_AWARDS, ...SHAME_AWARDS];
-  const debugRows = players.map(p => {
-    const award = assigned.get(p.id);
-    const cells = debugAwards.map(a => {
-      const ranked = [...players].sort((x,y) => a.val(y) - a.val(x));
-      const rank = ranked.findIndex(x=>x.id===p.id) + 1;
-      const val = a.val(p);
-      const isAssigned = award?.id === a.id;
-      const valDisplay = val === -999 ? "—" : Math.abs(val) < 1 ? val.toFixed(2) : Math.round(val);
-      return `<td style="text-align:center;padding:4px 6px;background:${isAssigned?'#1a3a1a':'transparent'};color:${rank===1?'#68D391':rank<=3?'var(--text)':'var(--muted)'};border:1px solid var(--border)">${rank}${isAssigned?'★':''}<br><span style="font-size:9px;color:var(--muted)">${valDisplay}</span></td>`;
-    }).join('');
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:4px 8px;color:var(--text);white-space:nowrap">${esc(p.name)}</td>
-      ${cells}
-      <td style="padding:4px 8px;color:#68D391">${award?.emoji||''} ${esc(award?.title||'—')}</td>
-    </tr>`;
   }).join('');
 
   const overlay = document.createElement("div");
@@ -2009,25 +1971,6 @@ function openMatchDetail(matchId) {
 
   const badgeStyle = m.winner==="ct" ? "background:#1a2a3a;color:#4299E1" : "background:#2a1a1a;color:#e53e3e";
 
-  // Build debug table data (admin only)
-  const debugAwards = [...GOOD_AWARDS, ...SHAME_AWARDS];
-  const debugRows = players.map(p => {
-    const award = assigned.get(p.id);
-    const cells = debugAwards.map(a => {
-      const ranked = [...players].sort((x,y) => a.val(y) - a.val(x));
-      const rank = ranked.findIndex(x=>x.id===p.id) + 1;
-      const val = a.val(p);
-      const isAssigned = award?.id === a.id;
-      const valDisplay = val === -999 ? "—" : Math.abs(val) < 1 ? val.toFixed(2) : Math.round(val);
-      return `<td style="text-align:center;padding:4px 6px;background:${isAssigned?'#1a3a1a':'transparent'};color:${rank===1?'#68D391':rank<=3?'var(--text)':'var(--muted)'};border:1px solid var(--border)">${rank}${isAssigned?'★':''}<br><span style="font-size:9px;color:var(--muted)">${valDisplay}</span></td>`;
-    }).join('');
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:4px 8px;color:var(--text);white-space:nowrap">${esc(p.name)}</td>
-      ${cells}
-      <td style="padding:4px 8px;color:#68D391">${award?.emoji||''} ${esc(award?.title||'—')}</td>
-    </tr>`;
-  }).join('');
-
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
@@ -2100,25 +2043,6 @@ function openPlayerProfile(pid) {
       <span style="color:${dColor};font-weight:700;font-family:var(--mono)">${eloDeltaVal>0?"+":""}${eloDeltaVal} ELO</span>
     </div>`;
   }).join('') || '<div style="color:var(--muted);font-size:13px;padding:10px 0">No match history yet</div>';
-
-  // Build debug table data (admin only)
-  const debugAwards = [...GOOD_AWARDS, ...SHAME_AWARDS];
-  const debugRows = players.map(p => {
-    const award = assigned.get(p.id);
-    const cells = debugAwards.map(a => {
-      const ranked = [...players].sort((x,y) => a.val(y) - a.val(x));
-      const rank = ranked.findIndex(x=>x.id===p.id) + 1;
-      const val = a.val(p);
-      const isAssigned = award?.id === a.id;
-      const valDisplay = val === -999 ? "—" : Math.abs(val) < 1 ? val.toFixed(2) : Math.round(val);
-      return `<td style="text-align:center;padding:4px 6px;background:${isAssigned?'#1a3a1a':'transparent'};color:${rank===1?'#68D391':rank<=3?'var(--text)':'var(--muted)'};border:1px solid var(--border)">${rank}${isAssigned?'★':''}<br><span style="font-size:9px;color:var(--muted)">${valDisplay}</span></td>`;
-    }).join('');
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:4px 8px;color:var(--text);white-space:nowrap">${esc(p.name)}</td>
-      ${cells}
-      <td style="padding:4px 8px;color:#68D391">${award?.emoji||''} ${esc(award?.title||'—')}</td>
-    </tr>`;
-  }).join('');
 
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
@@ -2548,25 +2472,6 @@ function openBulkMapping(matchDataList) {
         ${rows}
       </div>
     </div>`;
-  }).join('');
-
-  // Build debug table data (admin only)
-  const debugAwards = [...GOOD_AWARDS, ...SHAME_AWARDS];
-  const debugRows = players.map(p => {
-    const award = assigned.get(p.id);
-    const cells = debugAwards.map(a => {
-      const ranked = [...players].sort((x,y) => a.val(y) - a.val(x));
-      const rank = ranked.findIndex(x=>x.id===p.id) + 1;
-      const val = a.val(p);
-      const isAssigned = award?.id === a.id;
-      const valDisplay = val === -999 ? "—" : Math.abs(val) < 1 ? val.toFixed(2) : Math.round(val);
-      return `<td style="text-align:center;padding:4px 6px;background:${isAssigned?'#1a3a1a':'transparent'};color:${rank===1?'#68D391':rank<=3?'var(--text)':'var(--muted)'};border:1px solid var(--border)">${rank}${isAssigned?'★':''}<br><span style="font-size:9px;color:var(--muted)">${valDisplay}</span></td>`;
-    }).join('');
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:4px 8px;color:var(--text);white-space:nowrap">${esc(p.name)}</td>
-      ${cells}
-      <td style="padding:4px 8px;color:#68D391">${award?.emoji||''} ${esc(award?.title||'—')}</td>
-    </tr>`;
   }).join('');
 
   const overlay = document.createElement("div");
@@ -3270,12 +3175,12 @@ function openMatchAwards(matchId) {
     else if (award.id==="spin") statVal = s.counterRatio ? `${(s.counterRatio*100).toFixed(0)}%` : "";
     const funny = ["lowdmg","deaths","ammo","reload","ffriend","lowkast","spray","spin"].includes(award.id);
     return `
-    <div style="background:var(--bg3);border:1px solid ${funny?'#7a1f1f44':'var(--border)'};border-radius:14px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px">
-      <div style="font-size:28px;line-height:1">${award.emoji}</div>
-      <div style="font-size:12px;font-weight:800;color:${funny?'#fc8181':rc};letter-spacing:1px;text-transform:uppercase;line-height:1.2">${esc(award.title)}</div>
-      <div style="font-size:10px;color:var(--muted);line-height:1.2">${esc(award.desc)}</div>
-      <div style="font-size:15px;font-weight:700;color:var(--text);margin-top:2px">${esc(p.name)}</div>
-      ${statVal ? `<div style="font-size:12px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${esc(statVal)}</div>` : ''}
+    <div style="background:var(--bg3);border:1px solid ${funny?'#7a1f1f44':'var(--border)'};border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:4px;height:100%;box-sizing:border-box;min-width:0;word-break:break-word">
+      <div style="font-size:24px;line-height:1">${award.emoji}</div>
+      <div style="font-size:11px;font-weight:800;color:${funny?'#fc8181':rc};letter-spacing:0.5px;text-transform:uppercase;line-height:1.2">${esc(award.title)}</div>
+      <div style="font-size:9px;color:var(--muted);line-height:1.2">${esc(award.desc)}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">${esc(p.name)}</div>
+      ${statVal ? `<div style="font-size:11px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${esc(statVal)}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -3306,21 +3211,21 @@ function openMatchAwards(matchId) {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
-    <div class="modal-box" style="width:min(880px,95vw);max-height:90vh;overflow-y:auto">
+    <div class="modal-box" style="width:min(860px,96vw);max-height:90vh;overflow-y:auto;overflow-x:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <div style="font-size:20px;font-weight:800;color:var(--text)">🏅 Match Awards</div>
         <div style="font-size:13px;color:var(--muted)">${esc(match.map)}${match.roundScore?` · ${match.roundScore.ct}:${match.roundScore.t}`:""}</div>
       </div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#68D391;margin-bottom:10px;font-family:var(--mono)">★ ${esc(winLabel.toUpperCase())} — WIN</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:8px;margin-bottom:20px;justify-items:stretch">
         ${renderTeamCards(winTeam)}
       </div>
 
       <div style="border-top:1px solid var(--border);margin-bottom:16px"></div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">${esc(loseLabel.toUpperCase())} — LOSS</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:8px;margin-bottom:16px;justify-items:stretch">
         ${renderTeamCards(loseTeam)}
       </div>
 
@@ -3344,7 +3249,7 @@ function openMatchAwards(matchId) {
         </div>
       </div>` : ''}
       <button class="btn btn-ghost" style="width:100%;margin-top:16px" id="awards-close">Close</button>
-    </div>`;
+    </div>`;;
   document.body.appendChild(overlay);
   document.getElementById("awards-close").addEventListener("click", () => overlay.remove());
   overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
