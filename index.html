@@ -2261,11 +2261,27 @@ function bindHistory() {
     const mid = e.target.closest("[data-delete-match]")?.dataset.deleteMatch;
     if (mid) {
       const m = state.matches.find(x=>x.id===mid);
-      const winPs  = m ? (m.winner==="ct" ? m.teams.ct : m.teams.t).map(id=>state.players.find(p=>p.id===id)).filter(Boolean) : [];
-      const label  = m ? `${m.map} (${teamLabel(winPs,"Team 1")} WIN)` : "this match";
-      if (confirm(`Remove ${label}?\n\nThis will reverse all rating changes from this match.`)) {
-        deleteMatch(mid);
-      }
+      const winPs = m ? (m.winner==="ct" ? m.teams.ct : m.teams.t).map(id=>state.players.find(p=>p.id===id)).filter(Boolean) : [];
+      const label = m ? `${m.map} (${teamLabel(winPs,"Team 1")} WIN)` : "this match";
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      overlay.style.zIndex = "99999";
+      overlay.innerHTML = `
+        <div class="modal-box" style="width:min(380px,95vw)">
+          <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">Remove Match</div>
+          <div style="font-size:14px;color:var(--muted);margin-bottom:20px">
+            Remove <b style="color:var(--text)">${esc(label)}</b>?<br>
+            <span style="font-size:12px">This will reverse all ELO changes from this match.</span>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost" style="flex:1" id="del-match-cancel">Cancel</button>
+            <button class="btn btn-primary" style="flex:1;background:#e53e3e" id="del-match-confirm">Remove</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      document.getElementById("del-match-cancel").addEventListener("click", () => overlay.remove());
+      document.getElementById("del-match-confirm").addEventListener("click", () => { overlay.remove(); deleteMatch(mid); });
+      overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
     }
   });
   document.getElementById("bulk-import-btn")?.addEventListener("click", openBulkImport);
@@ -3105,7 +3121,7 @@ function openMatchAwards(matchId) {
     { id:"lowleet",  emoji:"📉", title:"Leetify Victim",     desc:"Leetify has thoughts. Not good ones.", pri:16, val: p=>p.leetifyRating!=null?-p.leetifyRating:-999,               higher:true },
     { id:"hsp",      emoji:"🎯", title:"Headhunter",          desc:"Aim for the head, always",         pri:17, val: p=>p.hsp!=null?p.hsp:-999,                                          higher:true },
     { id:"spray",    emoji:"💦", title:"Spray Artist",        desc:"Highest spray accuracy",            pri:18, val: p=>p.sprayAccuracy!=null?p.sprayAccuracy:-999,                      higher:true },
-    { id:"ffriend",  emoji:"🤝", title:"Team Player",        desc:"Most team flashes",                pri:19, val: p=>p.flashFriend>0?p.flashFriend:-999,                                               higher:true },
+    { id:"ffriend",  emoji:"😵", title:"Sorry Guys",          desc:"Most team flashes",                pri:19, val: p=>p.flashFriend>0?p.flashFriend:-999,                                               higher:true },
     { id:"lowkast",  emoji:"📺", title:"Spectator Mode",     desc:"Lowest KAST%",                     pri:20, val: p=>p.kast!=null?-p.kast:-999,                                      higher:true },
     { id:"utility",  emoji:"🎒", title:"Hoarder",             desc:"Died with a full utility belt",    pri:21, val: p=>p.utilityOnDeath!=null?p.utilityOnDeath:-999,                   higher:true },
     { id:"spin",     emoji:"🌀", title:"Spinning Top",       desc:"Shooting mid-strafe, always",      pri:22, val: p=>(p.counterRatio!=null&&p.counterRatio>0)?-p.counterRatio:-999,   higher:true },
@@ -3252,10 +3268,10 @@ function openMatchAwards(matchId) {
     const funny = SHAME_IDS.has(award.id);
     return `
     <div style="background:var(--bg3);border:1px solid ${funny?'#7a1f1f44':'var(--border)'};border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:4px;height:100%;box-sizing:border-box;min-width:0;word-break:break-word">
-      <div style="font-size:24px;line-height:1">${award.emoji}</div>
-      <div style="font-size:11px;font-weight:800;color:${funny?'#fc8181':rc};letter-spacing:0.5px;text-transform:uppercase;line-height:1.2">${esc(award.title)}</div>
-      <div style="font-size:9px;color:var(--muted);line-height:1.2">${esc(award.desc)}</div>
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">${esc(p.name)}</div>
+      <div style="font-size:28px;line-height:1">${award.emoji}</div>
+      <div style="font-size:13px;font-weight:800;color:${funny?'#fc8181':rc};letter-spacing:0.5px;text-transform:uppercase;line-height:1.3">${esc(award.title)}</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.3">${esc(award.desc)}</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-top:4px">${esc(p.name)}</div>
       ${statVal ? `<div style="font-size:11px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${esc(statVal)}</div>` : ''}
     </div>`;
   }).join('');
