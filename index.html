@@ -1701,7 +1701,10 @@ function openLeetifyMapping(data) {
     const flashFriend     = s.flashbangHitFriend ?? 0;
     const flashFoe        = s.flashbangHitFoe ?? 0;
     const roundsSurvived  = s.roundsSurvived  ?? 0;
-    const multi3k         = (s.multi3k??0)+(s.multi4k??0)+(s.multi5k??0);
+    const multi3k         = s.multi3k         ?? 0;
+    const multi4k         = s.multi4k         ?? 0;
+    const multi5k         = s.multi5k         ?? 0;
+    const tradeKillsSucceeded = s.tradeKillsSucceeded ?? 0;
     const accuracy        = s.accuracy        ?? null;
     const dpr             = s.dpr             ?? null;
     const mvps            = s.mvps            ?? 0;
@@ -2404,7 +2407,10 @@ function openBulkMapping(matchDataList) {
       const flashFriend     = s.flashbangHitFriend ?? 0;
       const flashFoe        = s.flashbangHitFoe ?? 0;
       const roundsSurvived  = s.roundsSurvived  ?? 0;
-      const multi3k         = (s.multi3k??0)+(s.multi4k??0)+(s.multi5k??0);
+      const multi3k         = s.multi3k         ?? 0;
+      const multi4k         = s.multi4k         ?? 0;
+      const multi5k         = s.multi5k         ?? 0;
+      const tradeKillsSucceeded = s.tradeKillsSucceeded ?? 0;
       const accuracy        = s.accuracy        ?? null;
       const dpr             = s.dpr             ?? null;
       const mvps            = s.mvps            ?? 0;
@@ -2480,8 +2486,14 @@ function openBulkMapping(matchDataList) {
       <div style="max-height:460px;overflow-y:auto;margin-bottom:14px">${matchSections}</div>
       <div style="display:flex;gap:10px">
         <button class="btn btn-ghost" id="bulk-map-cancel">Cancel</button>
-        <button class="btn btn-ghost" id="bulk-map-reimport" style="border-color:#ECC94B;color:#ECC94B">↺ FORCE REIMPORT</button>
-        <button class="btn btn-primary" style="flex:2;background:#f84982;border:none" id="bulk-map-confirm">IMPORT ALL MATCHES</button>
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1">
+          <button class="btn btn-ghost" id="bulk-map-reimport" style="border-color:#ECC94B;color:#ECC94B;gap:6px;width:100%">↺ FORCE REIMPORT STATS</button>
+          <div style="font-size:10px;color:var(--muted);text-align:center">Updates stats on existing matches — no ELO change</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex:2">
+          <button class="btn btn-primary" style="background:#f84982;border:none;width:100%" id="bulk-map-confirm">➕ IMPORT NEW MATCHES</button>
+          <div style="font-size:10px;color:var(--muted);text-align:center">Only imports matches not already in history</div>
+        </div>
       </div>
     </div>`;
   document.body.appendChild(overlay);
