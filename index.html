@@ -282,6 +282,7 @@
     <button class="nav-btn" data-view="history">HISTORY</button>
     <button class="nav-btn" data-view="leaderboard">LEADERBOARD</button>
     <button class="nav-btn" data-view="rankings">RANK SUGGESTIONS</button>
+    <button class="nav-btn" id="admin-tab" data-view="admin" style="display:none">⚙ ADMIN</button>
   </div>
 
   <div id="content"></div>
@@ -309,35 +310,69 @@ function checkAdminSession() {
 }
 
 async function promptAdmin() {
-  const pw = prompt("Enter admin password:");
-  if (!pw) return;
-  const hash = await hashString(pw);
-  if (hash === ADMIN_HASH) {
-    sessionStorage.setItem("cs2_admin", "1");
-    READONLY = false;
-    render();
-    updateAdminBadge();
-    flash("Admin mode unlocked");
-  } else {
-    alert("Incorrect password.");
-  }
+  // Custom modal with hidden password input instead of native prompt
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.style.zIndex = "99999";
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:min(340px,95vw)">
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">🔒 Admin Login</div>
+      <input id="admin-pw-input" type="password" placeholder="Password" autocomplete="current-password"
+        style="width:100%;margin-bottom:8px;font-size:15px" />
+      <div id="admin-pw-error" style="font-size:12px;color:#fc8181;min-height:16px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" id="admin-pw-cancel">Cancel</button>
+        <button class="btn btn-primary" style="flex:2" id="admin-pw-submit">UNLOCK</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const input = document.getElementById("admin-pw-input");
+  const error = document.getElementById("admin-pw-error");
+  input.focus();
+
+  const attempt = async () => {
+    const pw = input.value;
+    if (!pw) return;
+    const hash = await hashString(pw);
+    if (hash === ADMIN_HASH) {
+      sessionStorage.setItem("cs2_admin", "1");
+      READONLY = false;
+      overlay.remove();
+      render();
+      updateAdminBadge();
+      flash("Admin mode unlocked");
+    } else {
+      error.textContent = "Incorrect password.";
+      input.value = "";
+      input.focus();
+    }
+  };
+
+  document.getElementById("admin-pw-cancel").addEventListener("click", () => overlay.remove());
+  document.getElementById("admin-pw-submit").addEventListener("click", attempt);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") attempt(); });
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
 }
 
 function updateAdminBadge() {
   const badge = document.getElementById("readonly-badge");
   const adminBtn = document.getElementById("admin-btn");
+  const adminTab = document.getElementById("admin-tab");
   if (!badge || !adminBtn) return;
   if (READONLY) {
     badge.style.display = "block";
     badge.textContent = "👁 VIEW ONLY";
+    badge.style.color = "#64748b";
     adminBtn.textContent = "🔒 Admin";
     document.querySelectorAll(".nav-btn[data-view='match']").forEach(b => b.style.display = "none");
+    if (adminTab) adminTab.style.display = "none";
   } else {
     badge.style.display = "block";
     badge.textContent = "🔓 ADMIN";
     badge.style.color = "#68D391";
     adminBtn.textContent = "🔓 Admin";
     document.querySelectorAll(".nav-btn[data-view='match']").forEach(b => b.style.display = "");
+    if (adminTab) adminTab.style.display = "";
   }
 }
 const RANK_LABELS = {
@@ -455,6 +490,7 @@ let state = {
   editId: null,
   // captain draft
   draft: null,       // { captains:[ctId,tId], pool:[ids], picks:{ct:[],t:[]}, turn:"ct" }
+  activityLog: [],   // server-side activity log
 };
 
 const DEFAULT_PLAYERS = [
@@ -567,8 +603,9 @@ async function loadData() {
       const remoteTs  = data._savedAt || 0;
       const localTs   = parseInt(localStorage.getItem("cs2_savedAt") || "0");
       if (remoteTs >= localTs) {
-        state.players = data.players;
-        state.matches = data.matches || [];
+        state.players     = data.players;
+        state.matches     = data.matches     || [];
+        state.activityLog = data.activityLog || [];
         localStorage.setItem("cs2_players", JSON.stringify(state.players));
         localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
         localStorage.setItem("cs2_savedAt", String(remoteTs));
@@ -608,7 +645,7 @@ function saveData() {
       await fetch(JSONBIN_URL, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ players: state.players, matches: state.matches, _savedAt: savedAt })
+        body: JSON.stringify({ players: state.players, matches: state.matches, activityLog: state.activityLog, _savedAt: savedAt })
       });
     } catch (err) {
       console.error("JSONBin save error:", err);
@@ -644,6 +681,7 @@ function render() {
   if (state.view === "history") { content.innerHTML = renderHistory(); bindHistory(); }
   if (state.view === "leaderboard") { content.innerHTML = renderLeaderboard(); bindLeaderboard(); }
   if (state.view === "rankings") { content.innerHTML = renderRankings(); bindRankings(); }
+  if (state.view === "admin")    { content.innerHTML = renderAdmin(); bindAdmin(); }
 }
 
 function updateHeaderStats() {
@@ -860,11 +898,13 @@ function bindRoster() {
       const idx = state.players.findIndex(p=>p.id===pid);
       if (idx > -1) {
         const old = state.players[idx].rating;
+        logRatingChange(pid, old, newRating, "rank_suggestion");
         state.players[idx].rating = newRating;
-        // Reset ELO back to 1000 baseline after applying the rank correction
-        state.players[idx].elo = 1000;
+        state.players[idx].elo    = 1000;
+        state.players[idx].mu     = newRating * TS_MU_SCALE;
+        state.players[idx].sigma  = TS_SIGMA_INIT;
         saveData(); render();
-        flash(`${state.players[idx]?.name || "Player"} rating updated ${old.toFixed(1)} → ${newRating.toFixed(1)} · ELO reset to 1000`);
+        flash(`${state.players[idx]?.name || "Player"} rating ${old.toFixed(1)} → ${newRating.toFixed(1)} · ELO reset`);
       }
     });
   });
@@ -903,16 +943,62 @@ function addPlayer() {
   state.players.push(p);
   state.addForm.name = "";
   document.getElementById("new-steamid").value = "";
+  // Log the addition and initial rating server-side
+  logInitialRating(p);
+  state.activityLog.push({ type:"add_player", name: p.name, rating: p.rating, at: Date.now() });
   saveData(); render();
   flash(`${p.name} added to roster${steamId ? " · Leetify linked" : ""}`);
 }
 
+
+// ─── Rating change logger ─────────────────────────────────────────────────
+function logRatingChange(pid, oldRating, newRating, source) {
+  const p = state.players.find(x=>x.id===pid);
+  if (!p) return;
+  // Add to player's own ratingHistory
+  if (!p.ratingHistory) p.ratingHistory = [];
+  p.ratingHistory.push({ from: oldRating, to: newRating, at: Date.now(), source });
+  // Add to global activity log
+  state.activityLog.push({ type:"rating_change", name: p.name, from: oldRating, to: newRating, source, at: Date.now() });
+}
+
+// Log initial rating when player is first added
+function logInitialRating(p) {
+  p.ratingHistory = [{ from: null, to: p.rating, at: Date.now(), source: "initial" }];
+  state.activityLog.push({ type:"rating_initial", name: p.name, rating: p.rating, at: Date.now() });
+}
 function removePlayer(id) {
   const p = state.players.find(x=>x.id===id);
-  state.players = state.players.filter(x=>x.id!==id);
-  state.lobby = state.lobby.filter(i=>i!==id);
-  saveData(); render();
-  if(p) flash(`${p.name} removed`);
+  if (!p) return;
+  // Custom confirm modal so it's safe on stream
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.style.zIndex = "99999";
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:min(360px,95vw)">
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">Remove Player</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:20px">
+        Remove <b style="color:var(--text)">${esc(p.name)}</b> from the roster?<br>
+        <span style="font-size:12px">Their match history and ELO will be lost.</span>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" style="flex:1" id="rm-cancel">Cancel</button>
+        <button class="btn btn-primary" style="flex:1;background:#e53e3e" id="rm-confirm">Remove</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById("rm-cancel").addEventListener("click", () => overlay.remove());
+  document.getElementById("rm-confirm").addEventListener("click", () => {
+    overlay.remove();
+    const name = p.name;
+    state.players = state.players.filter(x=>x.id!==id);
+    state.lobby = state.lobby.filter(i=>i!==id);
+    // Log the removal server-side
+    state.activityLog.push({ type:"remove_player", name, at: Date.now() });
+    saveData(); render();
+    flash(`${name} removed`);
+  });
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
 }
 
 // ─── Edit modal ────────────────────────────────────────────────────────────
@@ -979,7 +1065,10 @@ function openEdit(id) {
         // Reset ELO and hidden rating if rating changed
         ...(ratingChanged ? { elo: 1000, mu: newRating * TS_MU_SCALE, sigma: TS_SIGMA_INIT } : {})
       };
-      if (ratingChanged) flash(`${newName} rating ${oldRating.toFixed(1)} → ${newRating.toFixed(1)} · ELO reset to 1000`);
+      if (ratingChanged) {
+        logRatingChange(state.players[idx].id, oldRating, newRating, "manual_edit");
+        flash(`${newName} rating ${oldRating.toFixed(1)} → ${newRating.toFixed(1)} · ELO reset to 1000`);
+      }
     }
     saveData(); overlay.remove(); render();
     flash(`${newName} updated`);
@@ -2705,17 +2794,104 @@ function bindRankings() {
       const idx = state.players.findIndex(p=>p.id===pid);
       if (idx > -1) {
         const old = state.players[idx].rating;
+        logRatingChange(pid, old, newRating, "rank_suggestion");
         state.players[idx].rating = newRating;
         state.players[idx].elo    = 1000;
-        // Re-seed hidden rating from new manual rating
-        state.players[idx].mu    = newRating * TS_MU_SCALE;
-        state.players[idx].sigma = TS_SIGMA_INIT;
+        state.players[idx].mu     = newRating * TS_MU_SCALE;
+        state.players[idx].sigma  = TS_SIGMA_INIT;
         saveData(); render();
-        flash(`${state.players[idx].name} rating ${old.toFixed(1)} → ${newRating.toFixed(1)} · ELO + hidden rating reset`);
+        flash(`${state.players[idx].name} rating ${old.toFixed(1)} → ${newRating.toFixed(1)} · ELO reset`);
       }
     });
   });
 }
+
+// ─── Admin page ───────────────────────────────────────────────────────────
+function renderAdmin() {
+  // Activity log
+  const log = [...(state.activityLog||[])].reverse();
+
+  const logRows = log.length === 0
+    ? '<div style="color:var(--muted);font-size:13px;padding:12px 0">No activity logged yet</div>'
+    : log.map(e => {
+        const date = new Date(e.at).toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+        const icon = e.type==="add_player" ? "➕" : e.type==="remove_player" ? "✕" : "✎";
+        const color = e.type==="add_player" ? "#68D391" : e.type==="remove_player" ? "#fc8181" : "var(--muted)";
+        const label = e.type==="add_player" ? `Added (rating ${e.rating?.toFixed(1)||'?'})` 
+          : e.type==="remove_player" ? "Removed"
+          : e.type==="rating_initial" ? `Initial rating ${e.rating?.toFixed(1)||'?'}`
+          : e.type==="rating_change" ? `Rating ${e.from?.toFixed(1)}→${e.to?.toFixed(1)} (${e.source==='rank_suggestion'?'suggested':e.source==='manual_edit'?'manual edit':'?'})`
+          : "Changed";
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:8px;margin-bottom:5px;font-size:13px">
+          <span style="font-size:15px">${icon}</span>
+          <span style="color:${color};font-weight:700">${label}:</span>
+          <span style="color:var(--text);font-weight:600">${esc(e.name||"")}</span>
+          <span style="color:var(--muted);margin-left:auto;font-family:var(--mono);font-size:11px">${date}</span>
+        </div>`;
+      }).join('');
+
+  // Rating history table - show initial rating and ELO drift
+  const playerRows = [...state.players]
+    .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+    .map(p => {
+      const rc = rankColor(p.rating);
+      const elo = p.elo ?? 1000;
+      const drift = elo - 1000;
+      const driftColor = drift > 0 ? "#68D391" : drift < 0 ? "#fc8181" : "var(--muted)";
+      const matches = (p.matchHistory||[]).length;
+      const hist = (p.ratingHistory||[]);
+      const initial = hist.length > 0 ? hist[0].to : p.rating;
+      const changes = hist.filter(h=>h.from!==null);
+      const histLine = changes.length > 0
+        ? changes.map(h=>`${h.from?.toFixed(1)}→${h.to?.toFixed(1)}`).join(' · ')
+        : 'No changes';
+      return `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:1fr auto auto auto auto;align-items:center;gap:12px;padding:10px 14px;font-size:13px">
+          <div style="font-weight:700;color:var(--text)">${esc(p.name)}</div>
+          <div style="text-align:center">
+            <div style="color:${rc};font-weight:700;font-family:var(--mono)">${p.rating.toFixed(1)}</div>
+            <div style="font-size:10px;color:var(--muted)">CURRENT</div>
+          </div>
+          <div style="text-align:center">
+            <div style="color:var(--muted);font-family:var(--mono)">${initial.toFixed(1)}</div>
+            <div style="font-size:10px;color:var(--muted)">INITIAL</div>
+          </div>
+          <div style="text-align:center">
+            <div style="color:var(--text);font-family:var(--mono)">${elo}</div>
+            <div style="font-size:10px;color:var(--muted)">ELO</div>
+          </div>
+          <div style="text-align:center">
+            <div style="color:var(--muted);font-size:12px">${matches}</div>
+            <div style="font-size:10px;color:var(--muted)">GAMES</div>
+          </div>
+        </div>
+        ${changes.length > 0 ? `
+        <div style="padding:6px 14px 10px;border-top:1px solid var(--border)">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">RATING HISTORY</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            ${hist.map(h=>h.from===null
+              ? `<span style="font-size:11px;font-family:var(--mono);background:var(--bg3);padding:2px 7px;border-radius:4px;color:var(--muted)">Initial: ${h.to.toFixed(1)}</span>`
+              : `<span style="font-size:11px;font-family:var(--mono);background:var(--bg3);padding:2px 7px;border-radius:4px;color:${h.to>h.from?'#68D391':'#fc8181'}">${h.from.toFixed(1)}→${h.to.toFixed(1)} <span style="color:var(--muted2);font-size:10px">(${h.source==='rank_suggestion'?'suggested':h.source==='manual_edit'?'manual':'?'})</span></span>`
+            ).join('')}
+          </div>
+        </div>` : ''}
+      </div>`;
+    }).join('');
+
+  return `
+  <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px">⚙ ADMIN PANEL</div>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Visible to admins only</div>
+
+  <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">PLAYER RATINGS & ELO</div>
+  ${playerRows}
+
+  <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin:24px 0 10px;font-family:var(--mono)">ACTIVITY LOG</div>
+  <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Tracks player additions and removals on this device.</div>
+  ${logRows}`;
+}
+
+function bindAdmin() {}
 
 // ─── Nav wiring ────────────────────────────────────────────────────────────
 document.querySelectorAll(".nav-btn").forEach(btn => {
