@@ -313,6 +313,10 @@ function checkAdminSession() {
   READONLY = level === 0;
 }
 
+function currentUser() {
+  return sessionStorage.getItem("cs2_user_name") || "unknown";
+}
+
 async function promptAdmin() {
   // Custom modal with hidden password input instead of native prompt
   const overlay = document.createElement("div");
@@ -320,7 +324,11 @@ async function promptAdmin() {
   overlay.style.zIndex = "99999";
   overlay.innerHTML = `
     <div class="modal-box" style="width:min(340px,95vw)">
-      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">🔒 Admin Login</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">🔒 Login</div>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Your name</label>
+      <input id="admin-name-input" type="text" placeholder="e.g. penguin" autocomplete="name"
+        style="width:100%;margin-bottom:10px;font-size:15px" />
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Password</label>
       <input id="admin-pw-input" type="password" placeholder="Password" autocomplete="current-password"
         style="width:100%;margin-bottom:8px;font-size:15px" />
       <div id="admin-pw-error" style="font-size:12px;color:#fc8181;min-height:16px;margin-bottom:12px"></div>
@@ -330,30 +338,35 @@ async function promptAdmin() {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  const nameInput = document.getElementById("admin-name-input");
   const input = document.getElementById("admin-pw-input");
   const error = document.getElementById("admin-pw-error");
-  input.focus();
+  nameInput.focus();
 
   const attempt = async () => {
-    const pw = input.value;
-    if (!pw) return;
+    const name = nameInput.value.trim();
+    const pw   = input.value;
+    if (!name) { error.textContent = "Please enter your name."; nameInput.focus(); return; }
+    if (!pw)   { error.textContent = "Please enter the password."; input.focus(); return; }
     const hash = await hashString(pw);
     if (hash === ADMIN_HASH) {
       TRUST_LEVEL = 2;
       sessionStorage.setItem("cs2_trust_level", "2");
+      sessionStorage.setItem("cs2_user_name", name);
       READONLY = false;
       overlay.remove();
       render();
       updateAdminBadge();
-      flash("Admin mode unlocked");
+      flash(`Admin mode unlocked — logged in as ${name}`);
     } else if (hash === TRUSTED_HASH) {
       TRUST_LEVEL = 1;
       sessionStorage.setItem("cs2_trust_level", "1");
+      sessionStorage.setItem("cs2_user_name", name);
       READONLY = false;
       overlay.remove();
       render();
       updateAdminBadge();
-      flash("Trusted mode unlocked — you can add players and import matches");
+      flash(`Trusted mode unlocked — logged in as ${name}`);
     } else {
       error.textContent = "Incorrect password.";
       input.value = "";
@@ -364,6 +377,7 @@ async function promptAdmin() {
   document.getElementById("admin-pw-cancel").addEventListener("click", () => overlay.remove());
   document.getElementById("admin-pw-submit").addEventListener("click", attempt);
   input.addEventListener("keydown", e => { if (e.key === "Enter") attempt(); });
+  nameInput.addEventListener("keydown", e => { if (e.key === "Enter") input.focus(); });
   overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
 }
 
@@ -967,7 +981,7 @@ function addPlayer() {
   document.getElementById("new-steamid").value = "";
   // Log the addition and initial rating server-side
   logInitialRating(p);
-  state.activityLog.push({ type:"add_player", name: p.name, rating: p.rating, at: Date.now() });
+  state.activityLog.push({ type:"add_player", name: p.name, rating: p.rating, by: currentUser(), at: Date.now() });
   saveData(); render();
   flash(`${p.name} added to roster${steamId ? " · Leetify linked" : ""}`);
 }
@@ -977,17 +991,16 @@ function addPlayer() {
 function logRatingChange(pid, oldRating, newRating, source) {
   const p = state.players.find(x=>x.id===pid);
   if (!p) return;
-  // Add to player's own ratingHistory
+  const by = currentUser();
   if (!p.ratingHistory) p.ratingHistory = [];
-  p.ratingHistory.push({ from: oldRating, to: newRating, at: Date.now(), source });
-  // Add to global activity log
-  state.activityLog.push({ type:"rating_change", name: p.name, from: oldRating, to: newRating, source, at: Date.now() });
+  p.ratingHistory.push({ from: oldRating, to: newRating, at: Date.now(), source, by });
+  state.activityLog.push({ type:"rating_change", name: p.name, from: oldRating, to: newRating, source, by, at: Date.now() });
 }
 
-// Log initial rating when player is first added
 function logInitialRating(p) {
-  p.ratingHistory = [{ from: null, to: p.rating, at: Date.now(), source: "initial" }];
-  state.activityLog.push({ type:"rating_initial", name: p.name, rating: p.rating, at: Date.now() });
+  const by = currentUser();
+  p.ratingHistory = [{ from: null, to: p.rating, at: Date.now(), source: "initial", by }];
+  state.activityLog.push({ type:"rating_initial", name: p.name, rating: p.rating, by, at: Date.now() });
 }
 function removePlayer(id) {
   const p = state.players.find(x=>x.id===id);
@@ -1016,7 +1029,7 @@ function removePlayer(id) {
     state.players = state.players.filter(x=>x.id!==id);
     state.lobby = state.lobby.filter(i=>i!==id);
     // Log the removal server-side
-    state.activityLog.push({ type:"remove_player", name, at: Date.now() });
+    state.activityLog.push({ type:"remove_player", name, by: currentUser(), at: Date.now() });
     saveData(); render();
     flash(`${name} removed`);
   });
@@ -2848,6 +2861,7 @@ function renderAdmin() {
           <span style="font-size:15px">${icon}</span>
           <span style="color:${color};font-weight:700">${label}:</span>
           <span style="color:var(--text);font-weight:600">${esc(e.name||"")}</span>
+          ${e.by ? `<span style="font-size:11px;color:var(--muted)">by <b style="color:var(--text)">${esc(e.by)}</b></span>` : ''}
           <span style="color:var(--muted);margin-left:auto;font-family:var(--mono);font-size:11px">${date}</span>
         </div>`;
       }).join('');
@@ -2894,7 +2908,7 @@ function renderAdmin() {
           <div style="display:flex;flex-wrap:wrap;gap:5px">
             ${hist.map(h=>h.from===null
               ? `<span style="font-size:11px;font-family:var(--mono);background:var(--bg3);padding:2px 7px;border-radius:4px;color:var(--muted)">Initial: ${h.to.toFixed(1)}</span>`
-              : `<span style="font-size:11px;font-family:var(--mono);background:var(--bg3);padding:2px 7px;border-radius:4px;color:${h.to>h.from?'#68D391':'#fc8181'}">${h.from.toFixed(1)}→${h.to.toFixed(1)} <span style="color:var(--muted2);font-size:10px">(${h.source==='rank_suggestion'?'suggested':h.source==='manual_edit'?'manual':'?'})</span></span>`
+              : `<span style="font-size:11px;font-family:var(--mono);background:var(--bg3);padding:2px 7px;border-radius:4px;color:${h.to>h.from?'#68D391':'#fc8181'}">${h.from.toFixed(1)}→${h.to.toFixed(1)} <span style="color:var(--muted2);font-size:10px">(${h.source==='rank_suggestion'?'suggested':h.source==='manual_edit'?'manual':'?'}${h.by?' by '+h.by:''})</span></span>`
             ).join('')}
           </div>
         </div>` : ''}
