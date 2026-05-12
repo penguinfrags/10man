@@ -3076,8 +3076,33 @@ function openMatchAwards(matchId) {
   const assigned = new Map();
   const usedAwards = new Set();
 
-  // Pass 1: assign GOOD awards to their true server-wide winner
-  GOOD_AWARDS.forEach(award => {
+  // Pass 1: for each player, find the good award they rank #1 in server-wide
+  // Give each player their strongest award first, resolving conflicts by highest stat value
+  const playerBestGood = players.map(p => {
+    let bestAward = null, bestRank = Infinity, bestVal = -Infinity;
+    GOOD_AWARDS.forEach(award => {
+      const ranked = [...players].sort((a,b) => award.val(b) - award.val(a));
+      const rank = ranked.findIndex(x=>x.id===p.id);
+      const val = award.val(p);
+      if (val === -999 || val === 0) return;
+      if (rank < bestRank || (rank === bestRank && val > bestVal)) {
+        bestRank = rank; bestVal = val; bestAward = award;
+      }
+    });
+    return { p, bestAward, bestRank, bestVal };
+  }).filter(x => x.bestAward);
+
+  // Sort by rank so the player who ranks #1 in their best award gets it first
+  playerBestGood.sort((a,b) => a.bestRank - b.bestRank || b.bestVal - a.bestVal);
+
+  playerBestGood.forEach(({ p, bestAward }) => {
+    if (assigned.has(p.id) || usedAwards.has(bestAward.id)) return;
+    assigned.set(p.id, bestAward);
+    usedAwards.add(bestAward.id);
+  });
+
+  // Pass 2: players without a good award — give remaining good awards by rank
+  GOOD_AWARDS.filter(a => !usedAwards.has(a.id)).forEach(award => {
     const ranked = [...players].sort((a,b) => award.val(b) - award.val(a));
     const winner = ranked.find(p => !assigned.has(p.id));
     if (!winner) return;
@@ -3087,34 +3112,27 @@ function openMatchAwards(matchId) {
     usedAwards.add(award.id);
   });
 
-  // Pass 2: assign SHAME awards to server-wide worst, but NOT to someone who already has a good award
+  // Pass 3: assign SHAME awards to true worst, skipping players with good awards
   SHAME_AWARDS.forEach(award => {
     const ranked = [...players].sort((a,b) => award.val(b) - award.val(a));
-    // Prefer someone without an award; fall back to someone with a shame award already
-    const winner = ranked.find(p => !assigned.has(p.id)) || ranked.find(p => {
+    const winner = ranked.find(p => {
       const existing = assigned.get(p.id);
-      return existing && ["lowdmg","deaths","ammo","reload","ffriend","lowkast","spray","spin"].includes(existing.id);
+      if (existing && !["lowdmg","deaths","ammo","reload","ffriend","lowkast","spray","spin"].includes(existing.id)) return false;
+      return award.val(p) !== -999;
     });
     if (!winner) return;
-    const winVal = award.val(winner);
-    if (winVal === -999) return;
     assigned.set(winner.id, award);
     usedAwards.add(award.id);
   });
 
-  // Pass 3: any player still without award — give them the remaining award they rank best in
+  // Pass 4: any player still without award — best remaining
   players.forEach(p => {
     if (assigned.has(p.id)) return;
     const remaining = [...GOOD_AWARDS, ...SHAME_AWARDS].filter(a => !usedAwards.has(a.id));
-    if (!remaining.length) {
-      assigned.set(p.id, { emoji:"🎮", title:"Just Vibing", desc:"Participated" });
-      return;
-    }
-    let bestAward = remaining[0];
-    let bestRank = Infinity;
+    if (!remaining.length) { assigned.set(p.id, { emoji:"🎮", title:"Just Vibing", desc:"Participated" }); return; }
+    let bestAward = remaining[0], bestRank = Infinity;
     remaining.forEach(award => {
-      const ranked = [...players].sort((a,b) => award.val(b) - award.val(a));
-      const rank = ranked.findIndex(x=>x.id===p.id);
+      const rank = [...players].sort((a,b) => award.val(b) - award.val(a)).findIndex(x=>x.id===p.id);
       if (rank < bestRank) { bestRank = rank; bestAward = award; }
     });
     assigned.set(p.id, bestAward);
@@ -3131,8 +3149,6 @@ function openMatchAwards(matchId) {
     const award = assigned.get(p.id) || { emoji:"🎮", title:"Just Vibing", desc:"Participated" };
     const s = getStats(p.id);
     const rc = rankColor(state.players.find(x=>x.id===p.id)?.rating||5);
-    const kd = s.deaths>0 ? (s.kills/s.deaths).toFixed(2) : (s.kills||0);
-    const adr = rounds && s.damage ? (s.damage/rounds).toFixed(1) : null;
     let statVal = "";
     if (award.id==="damage")    statVal = `${s.damage||0} dmg`;
     else if (award.id==="hltv") statVal = s.hltvRating?.toFixed(2)||"";
@@ -3160,7 +3176,6 @@ function openMatchAwards(matchId) {
       <div style="font-size:12px;font-weight:800;color:${funny?'#fc8181':rc};letter-spacing:1px;text-transform:uppercase;line-height:1.2">${esc(award.title)}</div>
       <div style="font-size:10px;color:var(--muted);line-height:1.2">${esc(award.desc)}</div>
       <div style="font-size:15px;font-weight:700;color:var(--text);margin-top:2px">${esc(p.name)}</div>
-      <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${kd} K/D${adr?` · ${adr} ADR`:""}</div>
       ${statVal ? `<div style="font-size:12px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${esc(statVal)}</div>` : ''}
     </div>`;
   }).join('');
