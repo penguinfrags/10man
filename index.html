@@ -643,22 +643,13 @@ async function loadData() {
     }
     const data = json.record || json;
     if (data.players && data.players.length) {
-      // Only overwrite local data if remote is newer
-      // Track last save time in both local and remote
-      const remoteTs  = data._savedAt || 0;
-      const localTs   = parseInt(localStorage.getItem("cs2_savedAt") || "0");
-      if (remoteTs >= localTs) {
-        state.players     = data.players;
-        state.matches     = data.matches     || [];
-        state.activityLog = data.activityLog || [];
-        localStorage.setItem("cs2_players", JSON.stringify(state.players));
-        localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
-        localStorage.setItem("cs2_savedAt", String(remoteTs));
-        render();
-      } else {
-        console.log("[Sync] Remote data is older than local — keeping local. Remote:", new Date(remoteTs).toISOString(), "Local:", new Date(localTs).toISOString());
-        showSync("✓ LOCAL NEWER", "#68D391");
-      }
+      state.players     = data.players;
+      state.matches     = data.matches     || [];
+      state.activityLog = data.activityLog || [];
+      localStorage.setItem("cs2_players", JSON.stringify(state.players));
+      localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
+      localStorage.setItem("cs2_savedAt", String(data._savedAt || Date.now()));
+      render();
     }
     showSync("✓ SYNCED", "#68D391");
     hideSpinner();
