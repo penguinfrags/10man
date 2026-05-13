@@ -1210,13 +1210,15 @@ function buildBalancedTeams() {
   let ct = shuffled.slice(0, 5);
   let t  = shuffled.slice(5, 10);
 
-  // Optimize using noisy ratings so result varies each time
+  // Optimize using noisy ratings — stop once diff is under 1.5 (not perfect)
+  // This ensures varied team compositions rather than always the same optimal split
   const teamRating = arr => arr.reduce((s,p)=>s+p._nr,0);
   let improved = true;
   let passes = 0;
   while (improved && passes < 20) {
     improved = false;
     passes++;
+    if (Math.abs(teamRating(ct) - teamRating(t)) < 1.5) break; // good enough, stop
     for (let i = 0; i < ct.length; i++) {
       for (let j = 0; j < t.length; j++) {
         const before = Math.abs(teamRating(ct) - teamRating(t));
