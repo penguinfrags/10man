@@ -3217,6 +3217,7 @@ function openMatchAwards(matchId) {
   players.forEach(p => {
     const wins = playerWins.get(p.id) || [];
     if (!wins.length) return;
+    if (assigned.has(p.id)) return; // already assigned (e.g. mecha menace)
     const sorted = wins.sort((a,b) => {
       const aShame = SHAME_IDS.has(a.id) ? 1 : 0;
       const bShame = SHAME_IDS.has(b.id) ? 1 : 0;
