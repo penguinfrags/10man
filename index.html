@@ -2828,7 +2828,11 @@ function playerLeaderboardStats(p) {
     const mr = state.matches.find(x=>x.id===m.matchId);
     return s + (mr?.roundScore ? (mr.roundScore.ct + mr.roundScore.t) : 0);
   }, 0);
-  const adr     = rounds > 0 ? damage/rounds : 0;
+  // Use Leetify's dpr (accounts for disconnects) averaged across matches, fallback to damage/rounds
+  const dprVals = hist.map(m=>m.dpr).filter(v=>v!=null);
+  const adr     = dprVals.length > 0
+    ? dprVals.reduce((a,b)=>a+b,0)/dprVals.length
+    : (rounds > 0 ? damage/rounds : 0);
   const kpr     = rounds > 0 ? kills/rounds : 0;
   return { matches, wins, kills, deaths, assists, kd, wr, kpr, adr, elo: p.elo??1000, rounds, avgLR, avgHLTV };
 }
