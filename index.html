@@ -3328,7 +3328,8 @@ function openMatchAwards(matchId) {
       statVal = s.dpr != null ? `${s.dpr.toFixed(1)} ADR` : rd > 0 && s.damage ? `${(s.damage/rd).toFixed(1)} ADR` : `${s.damage||0} dmg`;
     }
     else if (award.id==="hltv")      statVal = s.hltvRating?.toFixed(2)||"";
-    else if (award.id==="perf")      statVal = s.personalPerf!=null?`×${s.personalPerf.toFixed(2)} vs self`:"";
+    else if (award.id==="perf")      statVal = s.personalPerf!=null?`${(s.personalPerf*100)>=0?"+":""}${(s.personalPerf*100).toFixed(2)} personal`:"";
+
     else if (award.id==="mecha") {
       const rd2 = match.roundScore?(match.roundScore.ct+match.roundScore.t):0;
       const adr2=s.dpr!=null?s.dpr.toFixed(1):(rd2>0&&s.damage?(s.damage/rd2).toFixed(1):null);
