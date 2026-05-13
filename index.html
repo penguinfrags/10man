@@ -2168,7 +2168,7 @@ function renderHistory() {
         const side = m.teams?.ct?.includes(p.id) ? "ct" : "t";
         const scoreEntry = m.scores?.[side]?.[p.id];
         const dmg = hist?.damage ?? scoreEntry?.damage ?? null;
-        const adrNum = s.dpr != null ? s.dpr : (rounds > 0 && dmg != null ? dmg / rounds : null);
+        const adrNum = hist?.dpr != null ? hist.dpr : (scoreEntry?.dpr != null ? scoreEntry.dpr : (rounds > 0 && dmg != null ? dmg / rounds : null));
         const adr = adrNum !== null ? adrNum.toFixed(1) : null;
         const adrColor = adrNum === null ? "var(--muted)"
           : adrNum >= 150 ? "#F6C343"
