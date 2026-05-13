@@ -1195,8 +1195,12 @@ function bindLobby() {
 function buildBalancedTeams() {
   const players = state.lobby.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
 
-  // Fisher-Yates shuffle all 10 players randomly
-  const shuffled = [...players];
+  // Add small random noise to ratings so we get varied balanced teams each reroll
+  // Noise of ±1.5 means teams won't always be identical but stay roughly balanced
+  const noisy = players.map(p => ({ ...p, _nr: p.rating + (Math.random() - 0.5) * 3 }));
+
+  // Fisher-Yates shuffle
+  const shuffled = [...noisy];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -1206,9 +1210,8 @@ function buildBalancedTeams() {
   let ct = shuffled.slice(0, 5);
   let t  = shuffled.slice(5, 10);
 
-  // Optimize balance by swapping pairs to minimize rating difference
-  // Run multiple passes until no improvement
-  const teamRating = arr => arr.reduce((s,p)=>s+p.rating,0);
+  // Optimize using noisy ratings so result varies each time
+  const teamRating = arr => arr.reduce((s,p)=>s+p._nr,0);
   let improved = true;
   let passes = 0;
   while (improved && passes < 20) {
@@ -1217,7 +1220,6 @@ function buildBalancedTeams() {
     for (let i = 0; i < ct.length; i++) {
       for (let j = 0; j < t.length; j++) {
         const before = Math.abs(teamRating(ct) - teamRating(t));
-        // Try swap
         const newCt = [...ct]; newCt[i] = t[j];
         const newT  = [...t];  newT[j]  = ct[i];
         const after = Math.abs(teamRating(newCt) - teamRating(newT));
