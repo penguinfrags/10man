@@ -3284,7 +3284,7 @@ function openMatchAwards(matchId) {
       const rd2 = match.roundScore?(match.roundScore.ct+match.roundScore.t):0;
       const adr2=rd2>0&&s.damage?(s.damage/rd2).toFixed(1):null;
       const lr2=s.hltvRating!=null?"HLTV "+s.hltvRating.toFixed(2):null;
-      statVal=[adr2?"ADR "+adr2:"",lr2?lr2:""].filter(Boolean).join(" · ");
+      statVal=[adr2?"ADR "+adr2:"",lr2?lr2:""].filter(Boolean).join("<br>");
     }
     else if (award.id==="hsp")       statVal = s.hsp!=null?`${(s.hsp*100).toFixed(0)}% HS`:""
     else if (award.id==="assists")  statVal = `${s.assists||0} assists`;
@@ -3322,7 +3322,7 @@ function openMatchAwards(matchId) {
       <div style="font-size:13px;font-weight:800;color:${award.isMecha?(p.won?'#FFD700':'#111'):funny?'#fc8181':rc};letter-spacing:0.5px;text-transform:uppercase;line-height:1.3">${esc(award.title)}</div>
       <div style="font-size:11px;color:var(--muted);line-height:1.3">${esc(award.desc)}</div>
       <div style="font-size:15px;font-weight:700;color:var(--text);margin-top:4px">${esc(p.name)}</div>
-      ${statVal ? `<div style="font-size:16px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${esc(statVal)}</div>` : ''}
+      ${statVal ? `<div style="font-size:16px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${award.id==='mecha'?statVal:esc(statVal)}</div>` : ''}
     </div>`;
   }).join('');
 
