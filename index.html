@@ -626,7 +626,7 @@ async function loadData() {
   showSync("⟳ SYNCING…");
   showSpinner();
 
-  // 2. Fetch from JSONBin in the background
+  // 2. Fetch from Cloudflare KV in the background
   const fetchWithTimeout = (ms) => Promise.race([
     fetch(JSONBIN_URL, { headers: {} }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
     new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
@@ -660,7 +660,7 @@ async function loadData() {
       showSync("⚠ SLOW", "#ECC94B");
       setTimeout(hideSync, 3000);
     } else {
-      console.error("JSONBin load error:", err);
+      console.error("Data load error:", err);
       hideSpinner();
       showSync("⚠ CACHED", "#ECC94B");
       setTimeout(hideSync, 3000);
@@ -684,7 +684,7 @@ function saveData() {
         body: JSON.stringify({ players: state.players, matches: state.matches, activityLog: state.activityLog, _savedAt: savedAt })
       });
     } catch (err) {
-      console.error("JSONBin save error:", err);
+      console.error("Data save error:", err);
       flash("Save failed — data cached locally");
     }
   }, 800);
