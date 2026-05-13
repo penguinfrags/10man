@@ -804,7 +804,11 @@ function playerCardHTML(p, selectable) {
     const mr = state.matches.find(x=>x.id===m.matchId);
     return s + (mr?.roundScore ? (mr.roundScore.ct + mr.roundScore.t) : 0);
   }, 0);
-  const adr = totalRounds > 0 ? totalDamage / totalRounds : null;
+  // Use Leetify's dpr where available (accounts for disconnects properly)
+  const dprVals = hist.map(m=>m.dpr).filter(v=>v!=null);
+  const adr = dprVals.length > 0
+    ? dprVals.reduce((a,b)=>a+b,0)/dprVals.length
+    : (totalRounds > 0 ? totalDamage / totalRounds : null);
 
   return `
   <div class="card${selectable?' clickable':''}${inLobby?' in-lobby':''}"
@@ -1210,13 +1214,14 @@ function buildBalancedTeams() {
     i = j;
   }
   
-  // Snake draft from shuffled-tier pool
+  // Snake draft from shuffled-tier pool — randomly pick which team gets first pick
   const ct=[], t=[];
+  const flip = Math.random() < 0.5; // randomize which team gets pick 1
   tiered.forEach((p,i) => {
     const block = Math.floor(i/2);
     const pos   = i%2;
-    if(block%2===0) { pos===0?ct.push(p):t.push(p); }
-    else            { pos===0?t.push(p):ct.push(p); }
+    const onCt  = block%2===0 ? pos===0 : pos===1;
+    (flip ? onCt : !onCt) ? ct.push(p) : t.push(p);
   });
   return { ct, t };
 }
@@ -1576,7 +1581,17 @@ function bindMatch() {
   });
   document.getElementById("reroll-btn")?.addEventListener("click", () => {
     if (state.lobby.length !== 10) { flash("Need 10 players in lobby to reroll"); return; }
-    state.teams = buildBalancedTeams();
+    const prevCt = new Set((state.teams?.ct||[]).map(p=>p.id));
+    let newTeams, attempts = 0;
+    do {
+      newTeams = buildBalancedTeams();
+      attempts++;
+      // Check if teams are different (at least 2 players swapped)
+      const newCtIds = new Set(newTeams.ct.map(p=>p.id));
+      const swapped = [...newCtIds].filter(id=>!prevCt.has(id)).length;
+      if (swapped >= 1 || attempts >= 10) break;
+    } while (true);
+    state.teams = newTeams;
     render();
     flash("Teams rerolled!");
   });
@@ -2153,7 +2168,7 @@ function renderHistory() {
         const side = m.teams?.ct?.includes(p.id) ? "ct" : "t";
         const scoreEntry = m.scores?.[side]?.[p.id];
         const dmg = hist?.damage ?? scoreEntry?.damage ?? null;
-        const adrNum = (rounds > 0 && dmg != null) ? dmg / rounds : null;
+        const adrNum = s.dpr != null ? s.dpr : (rounds > 0 && dmg != null ? dmg / rounds : null);
         const adr = adrNum !== null ? adrNum.toFixed(1) : null;
         const adrColor = adrNum === null ? "var(--muted)"
           : adrNum >= 150 ? "#F6C343"
@@ -3120,7 +3135,7 @@ function openMatchAwards(matchId) {
   const rounds = match.roundScore ? (match.roundScore.ct + match.roundScore.t) : null;
   const mechaMenaceWinner = (() => {
     const qualified = players.filter(p => {
-      const adr = rounds && p.damage ? p.damage / rounds : null;
+      const adr = p.dpr != null ? p.dpr : (rounds && p.damage ? p.damage / rounds : null);
       return (adr != null && adr >= 150) || (p.hltvRating != null && p.hltvRating >= 2.2);
     });
     if (!qualified.length) return null;
@@ -3128,8 +3143,8 @@ function openMatchAwards(matchId) {
     return qualified.sort((a,b) => {
       const aHltv = a.hltvRating ?? 0, bHltv = b.hltvRating ?? 0;
       if (bHltv !== aHltv) return bHltv - aHltv;
-      const aAdr = rounds&&a.damage?a.damage/rounds:0;
-      const bAdr = rounds&&b.damage?b.damage/rounds:0;
+      const aAdr = a.dpr ?? (rounds&&a.damage?a.damage/rounds:0);
+      const bAdr = b.dpr ?? (rounds&&b.damage?b.damage/rounds:0);
       return bAdr - aAdr;
     })[0];
   })();
@@ -3277,12 +3292,12 @@ function openMatchAwards(matchId) {
     let statVal = "";
     if (award.id==="damage") {
       const rd = match.roundScore ? (match.roundScore.ct + match.roundScore.t) : 0;
-      statVal = rd > 0 && s.damage ? `${(s.damage/rd).toFixed(1)} ADR` : `${s.damage||0} dmg`;
+      statVal = s.dpr != null ? `${s.dpr.toFixed(1)} ADR` : rd > 0 && s.damage ? `${(s.damage/rd).toFixed(1)} ADR` : `${s.damage||0} dmg`;
     }
     else if (award.id==="hltv")      statVal = s.hltvRating?.toFixed(2)||"";
     else if (award.id==="mecha") {
       const rd2 = match.roundScore?(match.roundScore.ct+match.roundScore.t):0;
-      const adr2=rd2>0&&s.damage?(s.damage/rd2).toFixed(1):null;
+      const adr2=s.dpr!=null?s.dpr.toFixed(1):(rd2>0&&s.damage?(s.damage/rd2).toFixed(1):null);
       const lr2=s.hltvRating!=null?"HLTV "+s.hltvRating.toFixed(2):null;
       statVal=[adr2?"ADR "+adr2:"",lr2?lr2:""].filter(Boolean).join("<br>");
     }
@@ -3307,7 +3322,7 @@ function openMatchAwards(matchId) {
     else if (award.id==="mvp")  statVal = `${s.mvps||0} ⭐`;
     else if (award.id==="lowdmg") {
       const rd = match.roundScore ? (match.roundScore.ct + match.roundScore.t) : 0;
-      statVal = rd > 0 && s.damage ? `${(s.damage/rd).toFixed(1)} ADR` : `${s.damage||0} dmg`;
+      statVal = s.dpr != null ? `${s.dpr.toFixed(1)} ADR` : rd > 0 && s.damage ? `${(s.damage/rd).toFixed(1)} ADR` : `${s.damage||0} dmg`;
     }
     else if (award.id==="deaths") statVal = `${s.deaths||0} deaths`;
     else if (award.id==="ammo") statVal = `${s.wastedAmmo||0} wasted`;
