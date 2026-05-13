@@ -1554,7 +1554,10 @@ function renderMatch() {
     ${teamColHTML(t,  label2, "t",  inMatch, !!state.pendingStats.t)}
   </div>
   <div style="display:flex;gap:10px;margin-bottom:20px">
-    ${!inMatch ? `<button class="btn btn-ghost" id="reroll-btn" style="gap:6px">🎲 REROLL TEAMS</button>` : ''}
+    ${!inMatch ? `
+      <button class="btn btn-ghost" id="reroll-btn" style="gap:6px">🎲 REROLL TEAMS</button>
+      <button class="btn btn-ghost" id="random-btn" style="gap:6px;border-color:#805ad5;color:#805ad5">🃏 RANDOM SHUFFLE</button>
+    ` : ''}
     <button class="btn btn-ghost" id="copy-teams-btn" style="gap:8px">📋 COPY TEAMS FOR DISCORD</button>
   </div>
   ${mapPicker}
@@ -1604,6 +1607,19 @@ function bindMatch() {
     state.teams = newTeams;
     render();
     flash("Teams rerolled!");
+  });
+
+  document.getElementById("random-btn")?.addEventListener("click", () => {
+    if (state.lobby.length !== 10) { flash("Need 10 players in lobby to shuffle"); return; }
+    const players = state.lobby.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+    const shuffled = [...players];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    state.teams = { ct: shuffled.slice(0,5), t: shuffled.slice(5,10) };
+    render();
+    flash("Teams randomly shuffled — no balance applied!");
   });
 
   document.getElementById("copy-teams-btn")?.addEventListener("click", () => {
