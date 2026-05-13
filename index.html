@@ -404,14 +404,12 @@ function updateAdminBadge() {
     badge.textContent = "👁 VIEW ONLY";
     badge.style.color = "#64748b";
     adminBtn.textContent = "🔒 Login";
-    document.querySelectorAll(".nav-btn[data-view='match']").forEach(b => b.style.display = "none");
     if (adminTab) adminTab.style.display = "none";
   } else if (TRUST_LEVEL === 1) {
     badge.style.display = "block";
     badge.textContent = "✓ TRUSTED";
     badge.style.color = "#4299E1";
     adminBtn.textContent = "✓ Trusted";
-    document.querySelectorAll(".nav-btn[data-view='match']").forEach(b => b.style.display = "none");
     if (adminTab) adminTab.style.display = "none";
   } else {
     badge.style.display = "block";
@@ -1611,15 +1609,21 @@ function bindMatch() {
 
   document.getElementById("random-btn")?.addEventListener("click", () => {
     if (state.lobby.length !== 10) { flash("Need 10 players in lobby to shuffle"); return; }
-    const players = state.lobby.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
-    const shuffled = [...players];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    try {
+      const players = state.lobby.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
+      const shuffled = [...players];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      state.teams = { ct: shuffled.slice(0,5), t: shuffled.slice(5,10) };
+      state.currentMatch = null;
+      render();
+      flash("Teams randomly shuffled — no balance applied!");
+    } catch(e) {
+      console.error("Random shuffle error:", e);
+      flash("Shuffle error: " + e.message);
     }
-    state.teams = { ct: shuffled.slice(0,5), t: shuffled.slice(5,10) };
-    render();
-    flash("Teams randomly shuffled — no balance applied!");
   });
 
   document.getElementById("copy-teams-btn")?.addEventListener("click", () => {
