@@ -3317,12 +3317,12 @@ function openMatchAwards(matchId) {
     else if (award.id==="spin") statVal = s.counterRatio ? `${(s.counterRatio*100).toFixed(0)}%` : "";
     const funny = SHAME_IDS.has(award.id);
     return `
-    <div style="background:${award.isMecha?(p.won?'#1a1a00':'#f0ead8'):funny?'var(--bg3)':'var(--bg3)'};border:${award.isMecha?('2px solid '+(p.won?'#FFD700':'#888')):"1px solid "+(funny?'#7a1f1f44':'var(--border)')};border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:4px;height:100%;box-sizing:border-box;min-width:0;word-break:break-word;min-height:200px;animation:${award.isMecha&&p.won?'mecha-pulse 2s ease-in-out infinite':'none'}">
+    <div style="background:${award.isMecha?(p.won?'#1a1a00':'#f0ead8'):funny?'var(--bg3)':'var(--bg3)'};border:${award.isMecha?('2px solid '+(p.won?'#FFD700':'#888')):"1px solid "+(funny?'#7a1f1f44':'var(--border)')};border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:5px;height:100%;box-sizing:border-box;min-width:0;word-break:break-word;min-height:200px;animation:${award.isMecha&&p.won?'mecha-pulse 2s ease-in-out infinite':'none'}">
       ${award.isMecha ? (p.won ? MECHA_SVG : HITLER_DEAD_SVG) : `<div style='font-size:28px;line-height:1'>${award.emoji}</div>`}
       <div style="font-size:13px;font-weight:800;color:${award.isMecha?(p.won?'#FFD700':'#111'):funny?'#fc8181':rc};letter-spacing:0.5px;text-transform:uppercase;line-height:1.3">${esc(award.title)}</div>
       <div style="font-size:11px;color:var(--muted);line-height:1.3">${esc(award.desc)}</div>
       <div style="font-size:15px;font-weight:700;color:var(--text);margin-top:4px">${esc(p.name)}</div>
-      ${statVal ? `<div style="font-size:11px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${esc(statVal)}</div>` : ''}
+      ${statVal ? `<div style="font-size:16px;font-weight:700;color:${funny?'#fc8181':'#68D391'};font-family:var(--mono)">${esc(statVal)}</div>` : ''}
     </div>`;
   }).join('');
 
