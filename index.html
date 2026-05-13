@@ -3173,11 +3173,6 @@ function openMatchAwards(matchId) {
   const SHAME_AWARDS = AWARDS.filter(a =>  ["lowdmg","deaths","ffriend","lowkast","spin","lowleet","utility"].includes(a.id));
   const SHAME_IDS    = new Set(SHAME_AWARDS.map(a=>a.id));
 
-  if (mechaMenaceWinner && !assigned.has(mechaMenaceWinner.id)) {
-    assigned.set(mechaMenaceWinner.id, { id:"mecha", emoji:"🤖", title:"Actually Hitler", desc:"150+ ADR or 2.2+ HLTV", pri:0, isMecha:true });
-    usedAwards.add("mecha");
-  }
-
   // Step 1: find the true #1 winner for every award
   const trueWinner = new Map(); // awardId -> playerId
   AWARDS.forEach(award => {
@@ -3203,6 +3198,12 @@ function openMatchAwards(matchId) {
   // someone who is the true #1 in ANY good award stat (even if that stat has no data).
   const assigned = new Map();
   const usedAwards = new Set();
+
+  // Pre-assign Mecha Menace FIRST before any other awards
+  if (mechaMenaceWinner) {
+    assigned.set(mechaMenaceWinner.id, { id:"mecha", emoji:"🤖", title:"Actually Hitler", desc:"150+ ADR or 2.2+ HLTV", pri:0, isMecha:true });
+    usedAwards.add("mecha");
+  }
 
   // Build set of players who are true #1 in at least one good stat (even if val=-999)
   const goodStatLeaders = new Set();
