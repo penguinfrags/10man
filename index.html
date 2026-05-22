@@ -3196,7 +3196,6 @@ function openMatchAwards(matchId) {
     { id:"damage",   emoji:"💥", title:"Walking Weapon",     desc:"Someone was cooking this match",   pri:9,  val: p=>p.damage??0,                                                     higher:true },
     { id:"flash",    emoji:"🔦", title:"Blind Faith",        desc:"Enemies saw white all game",       pri:10, val: p=>p.flashbangScore!=null?p.flashbangScore:(p.flashFoe>0?p.flashFoe:-999),         higher:true },
     { id:"assists",  emoji:"🤲", title:"Team Effort",        desc:"Most assists",                     pri:14, val: p=>(p.assists??p.a??0)>0?(p.assists??p.a??0):-999,                                          higher:true },
-    { id:"survive",  emoji:"🪳", title:"Cockroach",          desc:"Unkillable. Inexplicably.",         pri:13, val: p=>p.roundsSurvived??0,                                             higher:true },
     { id:"kast",     emoji:"💪", title:"Always Present",     desc:"Highest KAST%",               pri:12, val: p=>p.kast!=null?p.kast:-999,                                                      higher:true },
     { id:"mvp",      emoji:"⭐", title:"Round Winner",       desc:"Clutching when it counted",        pri:13, val: p=>p.mvps>0?p.mvps:-999,                                                       higher:true },
     { id:"lowdmg",   emoji:"👻", title:"I Was There",        desc:"Ghost on the scoreboard",          pri:14, val: p=>-(p.damage??999),                                                higher:true },
