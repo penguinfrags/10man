@@ -338,17 +338,19 @@ async function promptAdmin() {
   overlay.innerHTML = `
     <div class="modal-box" style="width:min(340px,95vw)">
       <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">🔒 Login</div>
-      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Your name</label>
-      <input id="admin-name-input" type="text" placeholder="e.g. penguin" autocomplete="name"
-        style="width:100%;margin-bottom:10px;font-size:15px" />
-      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Password</label>
-      <input id="admin-pw-input" type="password" placeholder="Password" autocomplete="current-password"
-        style="width:100%;margin-bottom:8px;font-size:15px" />
-      <div id="admin-pw-error" style="font-size:12px;color:#fc8181;min-height:16px;margin-bottom:12px"></div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-ghost" id="admin-pw-cancel">Cancel</button>
-        <button class="btn btn-primary" style="flex:2" id="admin-pw-submit">UNLOCK</button>
-      </div>
+      <form autocomplete="on" onsubmit="return false">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Your name</label>
+        <input id="admin-name-input" type="text" placeholder="e.g. penguin" autocomplete="username"
+          style="width:100%;margin-bottom:10px;font-size:15px" />
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Password</label>
+        <input id="admin-pw-input" type="password" placeholder="Password" autocomplete="current-password"
+          style="width:100%;margin-bottom:8px;font-size:15px" />
+        <div id="admin-pw-error" style="font-size:12px;color:#fc8181;min-height:16px;margin-bottom:12px"></div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost" type="button" id="admin-pw-cancel">Cancel</button>
+          <button class="btn btn-primary" type="submit" style="flex:2" id="admin-pw-submit">UNLOCK</button>
+        </div>
+      </form>
     </div>`;
   document.body.appendChild(overlay);
   const nameInput = document.getElementById("admin-name-input");
@@ -389,6 +391,7 @@ async function promptAdmin() {
 
   document.getElementById("admin-pw-cancel").addEventListener("click", () => overlay.remove());
   document.getElementById("admin-pw-submit").addEventListener("click", attempt);
+  overlay.querySelector("form").addEventListener("submit", attempt);
   input.addEventListener("keydown", e => { if (e.key === "Enter") attempt(); });
   nameInput.addEventListener("keydown", e => { if (e.key === "Enter") input.focus(); });
   overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
