@@ -3118,13 +3118,32 @@ function renderAdmin() {
 
   <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin:24px 0 10px;font-family:var(--mono)">ACTIVITY LOG</div>
   <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Server-side log of all player additions, removals and rating changes across all devices.</div>
-  ${logRows}`;
+  ${logRows}
+  <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">DATA</div>
+    <button class="btn btn-ghost" id="export-data-btn" style="gap:6px">⬇ EXPORT BACKUP</button>
+  </div>`;
 }
 
 function bindAdmin() {
   document.getElementById("content").addEventListener("click", e => {
     const pid = e.target.closest("[data-player-profile]")?.dataset.playerProfile;
     if (pid) openPlayerProfile(pid);
+  });
+  document.getElementById("export-data-btn")?.addEventListener("click", () => {
+    const data = {
+      players: state.players,
+      matches: state.matches,
+      activityLog: state.activityLog,
+      _savedAt: Date.now(),
+      _exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `cs2-pickup-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    flash("Backup downloaded!");
   });
 }
 
