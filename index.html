@@ -2142,7 +2142,7 @@ function openPlayerProfile(pid) {
       <button class="btn btn-ghost" style="width:100%;margin-top:16px" id="profile-close">Close</button>
     </div>`;
   document.body.appendChild(overlay);
-  document.getElementById("profile-close").addEventListener("click", () => overlay.remove());
+  overlay.querySelector("#profile-close").addEventListener("click", () => overlay.remove());
   overlay.addEventListener("click", e => {
     const mid = e.target.closest("[data-open-match]")?.dataset.openMatch;
     if (mid) { overlay.remove(); openMatchDetail(mid); return; }
@@ -3120,6 +3120,20 @@ function renderAdmin() {
   <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Server-side log of all player additions, removals and rating changes across all devices.</div>
   ${logRows}
   <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">PASSWORDS</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">NEW ADMIN PASSWORD</div>
+        <input type="password" id="new-admin-pw" placeholder="New admin password" style="width:100%;box-sizing:border-box" />
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">NEW TRUSTED PASSWORD</div>
+        <input type="password" id="new-trusted-pw" placeholder="New trusted password" style="width:100%;box-sizing:border-box" />
+      </div>
+    </div>
+    <button class="btn btn-ghost" id="change-pw-btn" style="gap:6px">🔒 UPDATE PASSWORDS</button>
+  </div>
+  <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
     <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">DATA</div>
     <button class="btn btn-ghost" id="export-data-btn" style="gap:6px">⬇ EXPORT BACKUP</button>
   </div>`;
@@ -3130,6 +3144,25 @@ function bindAdmin() {
     const pid = e.target.closest("[data-player-profile]")?.dataset.playerProfile;
     if (pid) openPlayerProfile(pid);
   });
+  document.getElementById("change-pw-btn")?.addEventListener("click", async () => {
+    const adminPw   = document.getElementById("new-admin-pw").value.trim();
+    const trustedPw = document.getElementById("new-trusted-pw").value.trim();
+    if (!adminPw && !trustedPw) { flash("Enter at least one password to update"); return; }
+    if (adminPw && trustedPw && adminPw === trustedPw) { flash("Admin and trusted passwords must be different"); return; }
+    if ((adminPw && adminPw.length < 6) || (trustedPw && trustedPw.length < 6)) { flash("Passwords must be at least 6 characters"); return; }
+    if (adminPw) {
+      const h = await sha256(adminPw);
+      localStorage.setItem("cs2_admin_hash", h);
+    }
+    if (trustedPw) {
+      const h = await sha256(trustedPw);
+      localStorage.setItem("cs2_trusted_hash", h);
+    }
+    document.getElementById("new-admin-pw").value = "";
+    document.getElementById("new-trusted-pw").value = "";
+    flash(adminPw && trustedPw ? "Both passwords updated!" : adminPw ? "Admin password updated!" : "Trusted password updated!");
+  });
+
   document.getElementById("export-data-btn")?.addEventListener("click", () => {
     const data = {
       players: state.players,
@@ -3485,6 +3518,11 @@ const HITLER_DEAD_SVG = `<svg viewBox="0 0 100 120" width="40" height="48" style
   <rect x="54" y="104" width="42" height="1.5" fill="#bbb" rx="1"/>
   <rect x="54" y="108" width="38" height="1.5" fill="#bbb" rx="1"/>
 </svg>`;
+async function sha256(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
 // ─── Nav wiring ────────────────────────────────────────────────────────────
 document.querySelectorAll(".nav-btn").forEach(btn => {
   btn.addEventListener("click", () => setView(btn.dataset.view));
