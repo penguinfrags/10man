@@ -251,6 +251,13 @@
   .corner-tl { top: 8px; left: 8px; border-top: 2px solid var(--border2); border-left: 2px solid var(--border2); }
   .corner-br { bottom: 8px; right: 8px; border-bottom: 2px solid var(--border2); border-right: 2px solid var(--border2); }
 
+  @keyframes rank-rainbow {
+    0%{color:#ff0040}14%{color:#ff6b00}28%{color:#ffd700}42%{color:#4ade80}57%{color:#00e5ff}71%{color:#a78bfa}100%{color:#ff0040}
+  }
+  @keyframes rank-gold-pulse {
+    0%,100%{text-shadow:0 0 6px #FFD70088,0 0 12px #FFD70044}
+    50%{text-shadow:0 0 14px #FFD700cc,0 0 28px #FFD70088}
+  }
   @keyframes mecha-pulse {
     0%,100%{box-shadow:0 0 12px #FFD70066,0 0 24px #FFD70033;border-color:#FFD700}
     50%{box-shadow:0 0 24px #FFD700aa,0 0 48px #FFD70055;border-color:#fff7a0}
@@ -427,24 +434,28 @@ const RANK_LABELS = {
   1:"Silver 1",2:"Silver 2",3:"Silver 3",4:"Silver 4",5:"Silver Elite",6:"Silver Elite Master",
   7:"Gold Nova 1",8:"Gold Nova 2",9:"Gold Nova 3",10:"Gold Nova Master",
   11:"Master Guardian 1",12:"Master Guardian 2",13:"Master Guardian Elite",14:"Distinguished Master Guardian",
-  15:"Legendary Eagle",16:"Legendary Eagle Master",17:"Supreme Master First Class",18:"Global Elite"
+  15:"Legendary Eagle",16:"Legendary Eagle Master",17:"Supreme Master First Class",18:"Global Elite",
+  19:"Untouchable",20:"Legend",21:"God of War"
 };
 // Rank color gradient: grey -> light blue -> blue -> light purple -> purple -> pink -> red -> gold
 const RANK_COLOR_STOPS = [
-  [1,  "#C0C8D0"], // grey-white
-  [3,  "#A8B8C8"], // light grey
-  [5,  "#8AAEC8"], // grey-blue
-  [7,  "#6EB4E8"], // light blue
-  [9,  "#4299E1"], // blue
-  [11, "#818CF8"], // light purple
-  [13, "#A855F7"], // purple
-  [15, "#D946A8"], // purple-pink
-  [16, "#F43F5E"], // pink-red
-  [17, "#E53E3E"], // red
-  [18, "#F6C343"], // gold
+  [1,  "#C0C8D0"],
+  [3,  "#A8B8C8"],
+  [5,  "#8AAEC8"],
+  [7,  "#6EB4E8"],
+  [9,  "#4299E1"],
+  [11, "#818CF8"],
+  [13, "#A855F7"],
+  [15, "#D946A8"],
+  [16, "#F43F5E"],
+  [17, "#E53E3E"],
+  [18, "#FF0040"],
+  [19, "#FFD700"],
+  [20, "#FFD700"],
+  [21, "#FFD700"],
 ];
 function rankColor(r) {
-  const v = Math.max(1, Math.min(18, r));
+  const v = Math.max(1, Math.min(21, r));
   for (let i = 0; i < RANK_COLOR_STOPS.length - 1; i++) {
     const [r0, c0] = RANK_COLOR_STOPS[i];
     const [r1, c1] = RANK_COLOR_STOPS[i + 1];
@@ -460,6 +471,12 @@ function rankColor(r) {
   return RANK_COLOR_STOPS[RANK_COLOR_STOPS.length - 1][1];
 }
 const rankLabel = r => RANK_LABELS[Math.round(r)] || "Unranked";
+const rankStyle = r => {
+  const v = Math.round(r);
+  if (v >= 21) return 'animation:rank-rainbow 4s linear infinite';
+  if (v >= 20) return 'animation:rank-gold-pulse 2s ease-in-out infinite;color:#FFD700';
+  return `color:${rankColor(r)}`;
+};
 const genId = () => Math.random().toString(36).slice(2,9);
 const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
@@ -1063,7 +1080,7 @@ function openEdit(id) {
       <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Aliases (Steam names, comma-separated)</label>
       <input id="edit-aliases" type="text" value="${esc((p.aliases||[]).filter(a=>a!==p.steam64Id).join(", "))}" placeholder="e.g. john gilkison, johng" style="width:100%;margin-bottom:14px" />
       <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px" id="edit-rating-lbl">Rating: ${rankLabel(Math.round(p.rating))} (${p.rating.toFixed(1)})</label>
-      <input id="edit-rating" type="range" min="1" max="18" step="0.5" value="${p.rating}" style="width:100%;margin-bottom:20px" />
+      <input id="edit-rating" type="range" min="1" max="21" step="0.5" value="${p.rating}" style="width:100%;margin-bottom:20px" />
       <div style="display:flex;gap:10px">
         <button class="btn btn-ghost" id="edit-cancel">Cancel</button>
         ${!READONLY ? `<button class="btn btn-ghost" id="edit-reset-elo" style="border-color:#ECC94B;color:#ECC94B" title="Reset ELO to 1000">↺ RESET ELO</button>` : ''}
@@ -1136,7 +1153,7 @@ function renderLobby() {
   const canBalance   = state.lobby.length === 10;
   const tags = lobbyPlayers.map(p=>`
     <div class="lobby-tag">
-      <div class="lobby-tag-dot" style="background:${rankColor(p.rating)}"></div>
+      <div class="lobby-tag-dot" style="background:${rankColor(Math.min(p.rating,19))}"></div>
       <span>${esc(p.name)}</span>
       <button class="lobby-tag-x" data-toggle-lobby="${esc(p.id)}">×</button>
     </div>`).join('');
@@ -1275,7 +1292,7 @@ function renderDraft() {
         <div>
           <div style="font-size:10px;font-weight:700;letter-spacing:2px;color:${color};margin-bottom:2px">TEAM ${teamNum} CAPTAIN</div>
           <div style="font-size:15px;font-weight:700;color:${cap?'var(--text)':'var(--muted)'}">${cap ? esc(cap.name) : 'Not selected'}</div>
-          ${cap ? `<div style="font-size:11px;color:${rankColor(cap.rating)}">${esc(rankLabel(cap.rating))}</div>` : ''}
+          ${cap ? `<div style="font-size:11px;${rankStyle(cap.rating)}">${esc(rankLabel(cap.rating))}</div>` : ''}
         </div>
       </div>`;
     };
@@ -1288,7 +1305,7 @@ function renderDraft() {
         <div style="flex-shrink:0;width:32px;height:36px">${rankBadgeSVG(p.rating, rankColor(p.rating))}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(p.name)}</div>
-          <div style="font-size:11px;color:${rankColor(p.rating)};font-weight:600">${esc(rankLabel(p.rating))}</div>
+          <div style="font-size:11px;font-weight:600;${rankStyle(p.rating)}">${esc(rankLabel(p.rating))}</div>
 
         </div>
         <div style="font-size:10px;font-weight:700;color:${selectingColor};letter-spacing:1px">SET ${selectingLabel} CAP</div>
@@ -1345,7 +1362,7 @@ function renderDraft() {
       <div style="flex-shrink:0;width:32px;height:36px">${rankBadgeSVG(p.rating, rankColor(p.rating))}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(p.name)}</div>
-        <div style="font-size:11px;color:${rankColor(p.rating)};font-weight:600">${esc(rankLabel(p.rating))}</div>
+        <div style="font-size:11px;font-weight:600;${rankStyle(p.rating)}">${esc(rankLabel(p.rating))}</div>
       </div>
       <div style="font-size:11px;font-weight:700;color:${turnColor}">PICK →</div>
     </div>`).join('');
@@ -1460,7 +1477,7 @@ function teamColHTML(team, label, side, showStatBtn, statsEntered) {
       <div>
         <div class="tpr-name">${esc(p.name)}</div>
       </div>
-      <div class="tpr-rank" style="color:${rankColor(p.rating)}">${esc(rankLabel(Math.round(p.rating)))}</div>
+      <div class="tpr-rank" style="${rankStyle(p.rating)}">${esc(rankLabel(Math.round(p.rating)))}</div>
     </div>`).join('');
 
   const statBtn = showStatBtn ? `
@@ -2991,12 +3008,12 @@ function renderRankings() {
       </div>
       <div style="display:flex;align-items:center;gap:12px;font-family:var(--mono)">
         <div style="text-align:center">
-          <div style="font-size:18px;font-weight:700;color:${rankColor(s.current)}">${s.current.toFixed(1)}</div>
+          <div style="font-size:18px;font-weight:700;${rankStyle(s.current)}">${s.current.toFixed(1)}</div>
           <div style="font-size:10px;color:var(--muted);letter-spacing:1px">CURRENT</div>
         </div>
         <div style="font-size:22px;color:${s.up?'#68D391':'#fc8181'}">${s.up?"⬆":"⬇"}</div>
         <div style="text-align:center">
-          <div style="font-size:18px;font-weight:800;color:${rankColor(s.suggested)}">${s.suggested.toFixed(1)}</div>
+          <div style="font-size:18px;font-weight:800;${rankStyle(s.suggested)}">${s.suggested.toFixed(1)}</div>
           <div style="font-size:10px;color:var(--muted);letter-spacing:1px">SUGGESTED</div>
         </div>
       </div>
