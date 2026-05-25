@@ -831,7 +831,7 @@ function playerCardHTML(p, selectable) {
           ${lastDelta !== null ? `<span style="font-size:15px;font-weight:700;color:${deltaColor};font-family:var(--mono)">${deltaStr}</span>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:1px">
-          <div style="font-size:16px;color:${color};font-weight:700;letter-spacing:.5px">${esc(label)}</div>
+          <div style="font-size:16px;font-weight:700;letter-spacing:.5px;${rankStyle(p.rating)}">${esc(label)}</div>
           ${elo !== null ? `<div style="font-size:15px;font-weight:700;color:var(--muted);font-family:var(--mono)">ELO <span style="color:${netColor}">${elo}</span></div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
@@ -2024,7 +2024,7 @@ function openMatchDetail(matchId) {
         <div style="width:28px;height:32px">${rankBadgeSVG(p.rating,rc)}</div>
         <div>
           <div style="color:var(--text);font-weight:700;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px" data-player-profile="${esc(p.id)}">${esc(p.name)}</div>
-          <div style="font-size:10px;color:${rc}">${esc(rankLabel(p.rating))}</div>
+          <div style="font-size:10px;${rankStyle(p.rating)}">${esc(rankLabel(p.rating))}</div>
         </div>
         <span style="color:var(--muted);font-family:var(--mono);font-size:12px">${kills}/${deaths}/${assists}</span>
         <span style="color:var(--muted);font-family:var(--mono);font-size:11px">KD ${kd}</span>
@@ -2124,7 +2124,7 @@ function openPlayerProfile(pid) {
             <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(p.name)}</div>
             ${p.steam64Id ? `<a href="https://leetify.com/app/profile/${esc(p.steam64Id)}" target="_blank" rel="noopener" style="font-size:11px;font-weight:700;color:#f84982;text-decoration:none;padding:3px 8px;border:1px solid #f8498244;border-radius:6px">LEETIFY ↗</a>` : ''}
           </div>
-          <div style="font-size:12px;color:${color};font-weight:700;margin-top:2px">${esc(rankLabel(p.rating))} · ${p.rating.toFixed(1)}</div>
+          <div style="font-size:12px;font-weight:700;margin-top:2px;${rankStyle(p.rating)}">${esc(rankLabel(p.rating))} · ${p.rating.toFixed(1)}</div>
 
         </div>
         <div style="text-align:right">
