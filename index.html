@@ -669,9 +669,11 @@ async function loadData() {
       localStorage.setItem("cs2_players", JSON.stringify(state.players));
       localStorage.setItem("cs2_matches", JSON.stringify(state.matches));
       localStorage.setItem("cs2_savedAt", String(data._savedAt || Date.now()));
+      kvLoaded = true;
       render();
     }
     showSync("✓ SYNCED", "#68D391");
+    kvLoaded = true;
     hideSpinner();
     setTimeout(hideSync, 2000);
   } catch (err) {
@@ -688,7 +690,10 @@ async function loadData() {
   }
 }
 
+let kvLoaded = false; // prevents saving stale data before KV fetch completes
+
 function saveData() {
+  if (!kvLoaded) { console.warn("saveData blocked — KV not yet loaded"); return; }
   // Always cache locally as backup
   const savedAt = Date.now();
   localStorage.setItem("cs2_players", JSON.stringify(state.players));
